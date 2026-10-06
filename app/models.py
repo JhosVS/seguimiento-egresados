@@ -166,7 +166,7 @@ class Egresado(db.Model):
     # Académico
     id_curricula = db.Column(db.Integer, db.ForeignKey('curriculas.id_curricula'), nullable=False)
     anio_ingreso = db.Column(db.Integer)
-    periodo_ingreso = db.Column(db.String(10))
+    periodo_egreso = db.Column(db.String(10))   # opcional: ej. '25A', '25B', '25D', '25E', '25J', '25N', '25S'
     anio_egreso = db.Column(db.Integer)
 
     # Perfil

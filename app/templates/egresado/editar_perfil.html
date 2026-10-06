@@ -74,6 +74,11 @@
                                     <input type="text" class="form-control form-control-sm bg-white" 
                                            value="{{ e.curricula.programa.facultad.nombre if (e.curricula and e.curricula.programa and e.curricula.programa.facultad) else '—' }}" disabled readonly>
                                 </div>
+                                <div class="col-md-12">
+                                    <label class="form-label small text-muted fw-semibold">Código universitario</label>
+                                    <input type="text" class="form-control form-control-sm bg-white"
+                                           value="{{ e.codigo_universitario or '—' }}" disabled readonly>
+                                </div>
                                 <div class="col-md-8">
                                     <label class="form-label small text-muted fw-semibold">Escuela / Programa</label>
                                     <input type="text" class="form-control form-control-sm bg-white" 
@@ -100,8 +105,8 @@
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <label class="form-label small fw-semibold">DNI / Documento</label>
-                        <input type="text" name="dni" class="form-control" value="{{ e.dni or '' }}" placeholder="Número de DNI">
+                        <label class="form-label small fw-semibold">DNI <i class="bi bi-lock-fill text-muted"></i></label>
+                        <input type="text" class="form-control bg-light" value="{{ e.dni }}" disabled readonly>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label small fw-semibold">Nombres</label>
@@ -116,6 +121,14 @@
                         <input type="text" name="apellido_materno" class="form-control" value="{{ e.apellido_materno or '' }}">
                     </div>
                     <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Género</label>
+                        <select name="genero" class="form-select" required>
+                            <option value="" {{ 'selected' if not e.genero else '' }}>Selecciona...</option>
+                            <option value="M" {{ 'selected' if e.genero == 'M' else '' }}>Masculino</option>
+                            <option value="F" {{ 'selected' if e.genero == 'F' else '' }}>Femenino</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
                         <label class="form-label small fw-semibold">Año de Ingreso</label>
                         <input type="number" name="anio_ingreso" class="form-control" value="{{ e.anio_ingreso or '' }}" placeholder="Ej: 2018">
                     </div>
@@ -124,8 +137,13 @@
                         <input type="number" name="anio_egreso" class="form-control" value="{{ e.anio_egreso or '' }}" placeholder="Ej: 2023">
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label small fw-semibold">Período Académico de Egreso</label>
-                        <input type="text" name="periodo_ingreso" class="form-control" value="{{ e.periodo_ingreso or '' }}" placeholder="Ej: 25A, 25B">
+                        <label class="form-label small fw-semibold">
+                            Período de Egreso <span class="text-muted fw-normal">(opcional)</span>
+                        </label>
+                        <input type="text" name="periodo_egreso" class="form-control"
+                               value="{{ e.periodo_egreso or '' }}" maxlength="10"
+                               placeholder="Ej: 25A, 25B, 25D, 25E, 25J, 25N, 25S">
+                        <div class="form-text">Cuándo terminaste la carrera. Déjalo vacío si no lo recuerdas.</div>
                     </div>
                 </div>
             </div>

@@ -81,7 +81,7 @@ def _consulta(personal):
     if f.get('anio_egreso', type=int):
         q = q.filter(Egresado.anio_egreso == f.get('anio_egreso', type=int))
     if f.get('letra_periodo'):
-        q = q.filter(Egresado.periodo_ingreso.ilike(f'%{f["letra_periodo"]}'))
+        q = q.filter(Egresado.periodo_egreso.ilike(f'%{f["letra_periodo"]}'))
 
     nivel = f.get('nivel', '')
     if nivel.startswith('solo_') and nivel[5:] in NIVEL_NUM:
@@ -146,7 +146,7 @@ def exportar_egresados():
         ('Programa',             lambda e: e.programa.nombre),
         ('Facultad',             lambda e: e.facultad.nombre),
         ('Año de ingreso',       lambda e: e.anio_ingreso or ''),
-        ('Período de ingreso',   lambda e: e.periodo_ingreso or ''),
+        ('Período de egreso',    lambda e: e.periodo_egreso or ''),
     ]
 
     wb = Workbook()

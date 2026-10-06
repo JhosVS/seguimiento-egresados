@@ -67,10 +67,12 @@ def editar_perfil():
         e.linkedin        = request.form.get('linkedin', '').strip()
         e.facebook        = request.form.get('facebook', '').strip()
         e.tiktok          = request.form.get('tiktok', '').strip()
-        e.dni = request.form.get('dni', '').strip() or e.dni
         e.nombres = request.form.get('nombres', '').strip() or e.nombres
         e.apellido_paterno = request.form.get('apellido_paterno', '').strip() or e.apellido_paterno
         e.apellido_materno = request.form.get('apellido_materno', '').strip() or None
+        genero = request.form.get('genero', '')
+        if genero in ('M', 'F'):
+            e.genero = genero
 
         anio_ingreso = request.form.get('anio_ingreso', '').strip()
         if anio_ingreso and anio_ingreso.isdigit():
@@ -85,8 +87,8 @@ def editar_perfil():
             except ValueError:
                 pass
 
-        if hasattr(e, 'periodo_egreso'):
-            e.periodo_egreso = request.form.get('periodo', '').strip() or None
+        periodo = request.form.get('periodo_egreso', '').strip().upper()
+        e.periodo_egreso = periodo[:10] or None
 
         foto = request.files.get('foto')
         if foto and foto.filename:
