@@ -1,0 +1,218 @@
+/* app/static/css/public.css */
+:root {
+    --azul: #003876;
+    --texto: #1e293b;
+    --purple: #7e22ce;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--texto);
+}
+
+a { 
+    text-decoration: none; 
+}
+
+/* Transiciones globales para efectos hover */
+.stat-card, .feature-card, .preview-img, 
+.footer-principal a, .btn-secreto, .modal-close, .hero-dot {
+    transition: all .2s ease;
+}
+
+/* ── NAVBAR ── */
+.navbar-publica {
+    background: var(--azul);
+    padding: 10px 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, .25);
+}
+
+/* Adaptación del menú desplegable móvil */
+.menu-principal .navbar-toggler:focus {
+    box-shadow: none;
+}
+
+@media (max-width: 767.98px) {
+    .menu-principal .nav-link {
+        width: 100%;
+        display: block;
+        margin-bottom: 4px;
+    }
+    .menu-principal .nav-link:not(.active) {
+        background-color: #f1f5f9;
+    }
+}
+
+/* ── HERO ── */
+.hero-panorama {
+    position: relative;
+    min-height: 480px;
+    background: center / cover no-repeat;
+    display: flex;
+    align-items: center;
+    transition: background-image .8s ease-in-out;
+}
+
+.hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0,30,70,.3), rgba(0,56,118,.2) 60%, rgba(0,30,70,.1));
+}
+
+.hero-content {
+    position: relative;
+    z-index: 1;
+}
+
+.hero-content h1 {
+    text-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+}
+
+.hero-dots {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 2;
+}
+
+.hero-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .4);
+    cursor: pointer;
+}
+
+.hero-dot.active {
+    background: #fff;
+    transform: scale(1.2);
+}
+
+/* ── COMPONENTES & TARJETAS ── */
+.stat-card:hover {
+    transform: translateY(-4px);
+    background: rgba(255, 255, 255, .15) !important;
+}
+
+.feature-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .1) !important;
+}
+
+.feature-icon {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-img:hover { 
+    transform: scale(1.02); 
+}
+
+.fb-card { 
+    border: 1px solid #e4e6eb; 
+}
+
+.fb-info-row i { 
+    width: 20px; 
+    flex-shrink: 0; 
+}
+
+/* Utilidades Púrpura */
+.bg-purple { background-color: var(--purple); }
+.text-purple { color: var(--purple); }
+.bg-purple.bg-opacity-10 { background-color: rgba(126, 34, 206, .1); }
+
+/* ── FOOTER ── */
+.footer-principal a:hover { 
+    color: #cbd5e1 !important; 
+}
+
+.btn-secreto { 
+    opacity: .3; 
+}
+
+.btn-secreto:hover { 
+    opacity: .6; 
+}
+
+/* ── MODAL DE CRÉDITOS ── */
+.modal-creditos {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 15px;
+}
+
+.modal-contenido {
+    border-radius: 16px;
+    width: 100%;
+    position: relative;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: modoAparecer 0.25s ease-out forwards;
+}
+
+@keyframes modoAparecer {
+    from { transform: scale(0.92); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.modal-creditos-dark {
+    background: rgba(30, 41, 59, 0.95) !important;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f8fafc;
+    padding: 24px;
+    max-width: 360px;
+}
+
+.modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: #94a3b8;
+    cursor: pointer;
+}
+
+.modal-close:hover {
+    color: #fff;
+}
+
+.modal-creditos-dark .modal-img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin: 0 auto 16px;
+    display: block;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.lista-colaboradores {
+    list-style: none;
+    padding: 0;
+}
+
+.lista-colaboradores li {
+    color: #e2e8f0;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}

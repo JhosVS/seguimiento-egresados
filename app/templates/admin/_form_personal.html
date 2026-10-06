@@ -1,0 +1,126 @@
+<!-- app/templates/admin/_form_personal.html -->
+{%- set p = persona if persona is defined and persona else none -%}
+
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-primary text-white"><i class="bi bi-person-vcard me-2"></i>Datos personales</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-sm-6">
+                <label class="form-label">Nombres <span class="text-danger">*</span></label>
+                <input type="text" name="nombres" class="form-control" required value="{{ p.nombres if p else '' }}">
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label">DNI</label>
+                <input type="text" name="dni" class="form-control" maxlength="8" pattern="\d{8}"
+                       title="8 dígitos" value="{{ p.dni if p and p.dni else '' }}">
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label">Apellido paterno <span class="text-danger">*</span></label>
+                <input type="text" name="apellido_paterno" class="form-control" required value="{{ p.apellido_paterno if p else '' }}">
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label">Apellido materno</label>
+                <input type="text" name="apellido_materno" class="form-control" value="{{ p.apellido_materno if p and p.apellido_materno else '' }}">
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label">Teléfono</label>
+                <input type="text" name="telefono" class="form-control" maxlength="30" value="{{ p.telefono if p and p.telefono else '' }}">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-primary text-white"><i class="bi bi-shield-lock me-2"></i>Acceso al sistema</div>
+    <div class="card-body">
+        <div class="row g-3">
+            {% if p %}
+            <div class="col-sm-6">
+                <label class="form-label">Correo</label>
+                <input type="email" class="form-control" value="{{ p.usuario.correo if p.usuario else '' }}" disabled>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label">Nueva contraseña</label>
+                <input type="password" name="nueva_contrasena" class="form-control" minlength="8"
+                       placeholder="Dejar vacío para no cambiarla">
+            </div>
+            {% else %}
+            <div class="col-sm-6">
+                <label class="form-label">Correo <span class="text-danger">*</span></label>
+                <input type="email" name="correo" class="form-control" required>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label">Contraseña <span class="text-danger">*</span></label>
+                <input type="password" name="contrasena" class="form-control" required minlength="8"
+                       placeholder="Mínimo 8 caracteres">
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if not p or puede_cambiar_rol %}
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-primary text-white"><i class="bi bi-diagram-3 me-2"></i>Rol y ámbito</div>
+    <div class="card-body">
+        {% if rol_activo == 'coordinador' %}
+        <div class="form-text mb-2">Como coordinador, solo puedes crear cuentas de docente responsable.</div>
+        {% endif %}
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Rol <span class="text-danger">*</span></label>
+                <select name="id_rol" class="form-select" required>
+                    {% if roles|length > 1 %}<option value="">Seleccionar</option>{% endif %}
+                    {% for r in roles %}
+                    <option value="{{ r.id_rol }}" data-nombre="{{ r.nombre }}"
+                            {{ 'selected' if (p and p.id_rol == r.id_rol) or roles|length == 1 }}>
+                        {{ r.nombre|replace('_', ' ')|capitalize }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% if facultades %}
+            <div class="col-md-8 d-none" id="bloque-facultad">
+                <label class="form-label">Facultad a cargo <span class="text-danger">*</span></label>
+                <select name="id_facultad" class="form-select">
+                    <option value="">Seleccionar</option>
+                    {% for f in facultades %}
+                    <option value="{{ f.id_facultad }}" {{ 'selected' if p and p.id_facultad == f.id_facultad }}>{{ f.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div class="col-md-8 d-none" id="bloque-programa">
+                <label class="form-label">Programa a cargo <span class="text-danger">*</span></label>
+                <select name="id_programa" class="form-select">
+                    <option value="">Seleccionar</option>
+                    {% for pr in programas %}
+                    <option value="{{ pr.id_programa }}" {{ 'selected' if p and p.id_programa == pr.id_programa }}>
+                        {{ pr.nombre }}{% if facultades %} — {{ pr.facultad.nombre }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const selRol = document.querySelector('select[name="id_rol"]');
+    if (!selRol) return;
+    const bloqueFac  = document.getElementById('bloque-facultad');
+    const bloqueProg = document.getElementById('bloque-programa');
+    function actualizar() {
+        const opt = selRol.options[selRol.selectedIndex];
+        const nombre = opt ? opt.dataset.nombre : '';
+        if (bloqueFac)  bloqueFac.classList.toggle('d-none', nombre !== 'coordinador');
+        if (bloqueProg) bloqueProg.classList.toggle('d-none', nombre !== 'docente_responsable');
+    }
+    selRol.addEventListener('change', actualizar);
+    actualizar();
+})();
+</script>
+{% endif %}

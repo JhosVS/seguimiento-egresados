@@ -1,0 +1,48 @@
+<!-- app/templates/admin/nueva_encuesta.html -->
+{% extends "base.html" %}
+{% block titulo %}Nueva encuesta{% endblock %}
+
+{% block contenido %}
+<div class="mb-3">
+    <a href="{{ url_for('admin.encuestas') }}" class="text-decoration-none small text-secondary">← Volver</a>
+    <h4 class="fw-semibold m-0 mt-1">Nueva encuesta</h4>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <form method="POST" class="card-body">
+        <div class="row g-3">
+            <div class="col-sm-8">
+                <label class="form-label small mb-1">Nombre <span class="text-danger">*</span></label>
+                <input type="text" name="nombre" class="form-control form-control-sm" required maxlength="200"
+                       placeholder="Ej: Seguimiento Egresados 2026">
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small mb-1">Año <span class="text-danger">*</span></label>
+                <input type="number" name="anio" class="form-control form-control-sm" required
+                       min="2000" max="2100" value="{{ anio_actual }}">
+            </div>
+            <div class="col-12">
+                <label class="form-label small mb-1">Descripción</label>
+                <textarea name="descripcion" class="form-control form-control-sm" rows="2"
+                          placeholder="Propósito de la encuesta (opcional)"></textarea>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label small mb-1">Inicio</label>
+                <input type="date" name="fecha_inicio" class="form-control form-control-sm">
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label small mb-1">Fin</label>
+                <input type="date" name="fecha_fin" class="form-control form-control-sm">
+                <div class="form-text">La encuesta se cierra sola al pasar esta fecha.</div>
+            </div>
+        </div>
+
+        <p class="text-muted small mt-3 mb-0">Se creará en estado <strong>borrador</strong> para que agregues las preguntas.</p>
+
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-sm btn-primary">Crear y agregar preguntas</button>
+            <a href="{{ url_for('admin.encuestas') }}" class="btn btn-sm btn-light border">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

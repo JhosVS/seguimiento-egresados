@@ -1,0 +1,153 @@
+<!-- app/templates/base_public.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Sistema de Egresados — UNDAC{% endblock %}</title>
+    
+    <!-- Bootstrap y Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- CSS Personalizado -->
+    <link href="{{ url_for('static', filename='css/public.css') }}" rel="stylesheet">
+    
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+
+    <!-- NAVBAR PRINCIPAL -->
+    <nav class="navbar-publica">
+        <div class="container d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2 gap-sm-3">
+                <img src="{{ url_for('static', filename='img/sistemas_logo.png') }}" alt="Logo" style="height:36px;">
+                <div>
+                    <div class="text-white fw-bold lh-sm fs-6">Egresados Sistemas</div>
+                    <div class="text-white-50 small d-none d-sm-block">Escuela de Sistemas y Computación — UNDAC</div>
+                </div>
+            </div>
+            <div>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-light btn-sm fw-semibold text-dark">
+                    <i class="bi bi-person-circle me-1"></i><span class="d-none d-sm-inline">Iniciar sesión</span><span class="d-inline d-sm-none">Ingresar</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MENÚ DE NAVEGACIÓN -->
+    {% include '_navbar_menu.html' %}
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-dark text-white-50 py-4 py-md-5">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-12 col-md-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <img src="{{ url_for('static', filename='img/sistemas_logo.png') }}" alt="Logo" style="height:28px;opacity:.7;">
+                        <span class="text-white fw-bold">Egresados Sistemas</span>
+                    </div>
+                    <p class="small mb-1">Escuela de Ingeniería de Sistemas y Computación<br>UNDAC — Cerro de Pasco, Perú</p>
+                    <p class="small mb-0"><i class="bi bi-geo-alt me-1"></i> Av. Los Próceres 413, Pasco</p>
+                </div>
+                <div class="col-6 col-md-3">
+                    <h6 class="text-white fw-bold mb-2">Sistemas UNDAC</h6>
+                    <div class="d-flex flex-column small gap-1">
+                        <a href="https://extranet.undac.edu.pe/" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>Extranet 2.0</a>
+                        <a href="https://digital.undac.edu.pe/MesadePartes.jsp" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>Gestión Documental</a>
+                        <a href="http://posgrado.undac.edu.pe/" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>Posgrado</a>
+                        <a href="https://gradostitulos.undac.edu.pe/home" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>Grados y Títulos</a>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <h6 class="text-white fw-bold mb-2">Recursos</h6>
+                    <div class="d-flex flex-column small gap-1">
+                        <a href="https://undac.edu.pe/" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>Portal UNDAC</a>
+                        <a href="https://sistemas.undac.edu.pe/" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>Web Sistemas</a>
+                        <a href="https://undac.edu.pe/radio" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>Radio UNDAC</a>
+                        <a href="https://drive.google.com/file/d/1tK4dRZsJH-ATvFHIp6vGM5gBeV4IN_rh/view" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>FUT</a>
+                    </div>
+                </div>
+                <div class="col-12 col-md-3">
+                    <h6 class="text-white fw-bold mb-2">Más redes</h6>
+                    <div class="d-flex flex-column small gap-1">
+                        <a href="https://web.facebook.com/sistemaspasco/" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-facebook me-1"></i>Facebook</a>
+                        <a href="https://www.linkedin.com/in/universidad-nacional-daniel-alcides-carri%C3%B3n-undac-51b82837b/" target="_blank" class="text-white-50 text-decoration-none"><i class="bi bi-linkedin me-1"></i>LinkedIn</a>
+                    </div>
+                </div>
+            </div>
+            
+            <hr class="border-secondary opacity-25 my-3">
+            
+            <div class="d-flex justify-content-between align-items-center small">
+                <div>© {{ anio }} Ingeniería de Sistemas, UNDAC.</div>
+                <button type="button" class="btn-secreto text-white-50 bg-transparent border-0" onclick="abrirCreditos()">✦</button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODAL CRÉDITOS -->
+    <div id="modal-creditos" class="modal-creditos" style="display: none;">
+        <div class="modal-contenido modal-creditos-dark">
+            <button class="modal-close" onclick="cerrarCreditos()">
+                <i>x</i>
+            </button>
+            
+            <div class="modal-body text-start">
+                <audio id="musica-creditos" src="{{ url_for('static', filename='img/Stumfol Prisoner Medbay Song - The Surge.mp3') }}" preload="none" loop></audio>
+                
+                <img src="{{ url_for('static', filename='img/hacker.png') }}" alt="Créditos" class="modal-img">
+                
+                <h3 class="text-info text-center fs-6 fw-bold mb-1">Agradecimientos</h3>
+                <p class="text-muted text-center small mb-3">Colaboradores en la práctica:</p>
+                
+                <ul class="lista-colaboradores w-100 mb-3">
+                    <li><i class="bi bi-terminal text-info"></i> García Torres</li>
+                    <li><i class="bi bi-terminal text-info"></i> Cueva Condor</li>
+                    <li><i class="bi bi-terminal text-info"></i> Rojas Castillo</li>
+                    <li><i class="bi bi-terminal text-info"></i> De la Cruz Rojas</li>
+                    <li><i class="bi bi-terminal text-info"></i> Poma Mandujano</li>
+                </ul>
+                
+                <p class="text-info font-monospace text-center small fw-bold mb-2"><i>Gracias Totales</i></p>
+                <hr class="border-info opacity-50 my-2">
+                <p class="text-center small mb-0"><span class="text-muted">Practicante:</span> <b>Jhoshua Valladares</b></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const modalCreditos = document.getElementById('modal-creditos');
+        const musicaCreditos = document.getElementById('musica-creditos');
+
+        function abrirCreditos() {
+            if (modalCreditos) modalCreditos.style.display = 'flex';
+            if (musicaCreditos) {
+                musicaCreditos.volume = 0.4;
+                musicaCreditos.currentTime = 0;
+                musicaCreditos.play().catch(e => console.log("Audio bloqueado:", e));
+            }
+        }
+
+        function cerrarCreditos() {
+            if (modalCreditos) modalCreditos.style.display = 'none';
+            if (musicaCreditos) {
+                musicaCreditos.pause();
+                musicaCreditos.currentTime = 0;
+            }
+        }
+
+        window.addEventListener('click', e => {
+            if (e.target === modalCreditos) cerrarCreditos();
+        });
+    </script>
+    {% block scripts_extra %}{% endblock %}
+</body>
+</html>

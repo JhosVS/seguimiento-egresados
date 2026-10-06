@@ -1,0 +1,65 @@
+<!-- app/templates/admin/encuestas.html -->
+{% extends "base.html" %}
+{% block titulo %}Encuestas{% endblock %}
+
+{% block contenido %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="m-0 fw-semibold"><i class="bi bi-clipboard-data me-2"></i>Encuestas</h4>
+    {% if rol_activo == 'administrador' %}
+    <a href="{{ url_for('admin.nueva_encuesta') }}" class="btn btn-sm btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Nueva
+    </a>
+    {% endif %}
+</div>
+
+{% if encuestas %}
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 small">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3">Nombre</th>
+                    <th>Año</th>
+                    <th>Vigencia</th>
+                    <th>Estado</th>
+                    <th class="text-end pe-3">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for enc in encuestas %}
+                <tr>
+                    <td class="ps-3 fw-medium">{{ enc.nombre }}</td>
+                    <td>{{ enc.anio }}</td>
+                    <td class="text-muted">
+                        {% if enc.fecha_inicio or enc.fecha_fin %}
+                            {{ enc.fecha_inicio.strftime('%d/%m/%Y') if enc.fecha_inicio else '—' }}
+                            –
+                            {{ enc.fecha_fin.strftime('%d/%m/%Y') if enc.fecha_fin else '—' }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge rounded-pill {% if enc.estado == 'publicada' %}text-bg-success{% elif enc.estado == 'cerrada' %}text-bg-secondary{% else %}text-bg-warning{% endif %}">
+                            {{ enc.estado|capitalize }}
+                        </span>
+                    </td>
+                    <td class="text-end pe-3">
+                        <a href="{{ url_for('admin.resultados_encuesta', id=enc.id_encuesta) }}" class="btn btn-sm btn-outline-primary me-1">Resultados</a>
+                        <a href="{{ url_for('admin.detalle_encuesta', id=enc.id_encuesta) }}" class="btn btn-sm btn-outline-secondary">Detalles</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted small">
+    <p class="mb-2">No hay encuestas disponibles.</p>
+    {% if rol_activo == 'administrador' %}
+    <a href="{{ url_for('admin.nueva_encuesta') }}" class="btn btn-sm btn-primary">Crear primera</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

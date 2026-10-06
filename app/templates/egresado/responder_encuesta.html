@@ -1,0 +1,99 @@
+<!-- app/templates/egresado/responder_encuesta.html -->
+{% extends "base.html" %}
+{% block titulo %}{{ encuesta.nombre }}{% endblock %}
+
+{% block contenido %}
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{{ url_for('egresado.encuesta') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <h4 class="mb-0">{{ encuesta.nombre }}</h4>
+</div>
+
+{% if encuesta.descripcion %}
+<p class="text-muted">{{ encuesta.descripcion }}</p>
+{% endif %}
+
+<div class="alert alert-info small py-2 mb-4">
+    <i class="bi bi-info-circle me-1"></i>
+    Podrás responder esta encuesta <strong>una sola vez</strong>. Revisa tus respuestas antes de enviar.
+</div>
+
+<form method="POST">
+    <div class="card">
+        <div class="card-body">
+            {% for p in preguntas %}
+            <div class="mb-4 {% if not loop.last %}pb-4 border-bottom{% endif %}">
+                <label class="form-label fw-semibold">
+                    {{ loop.index }}. {{ p.texto }}
+                    {% if p.obligatoria %}<span class="text-danger">*</span>{% endif %}
+                </label>
+
+                {% if p.tipo == 'texto' %}
+                    <textarea name="pregunta_{{ p.id_pregunta }}" class="form-control" rows="2"
+                              {{ 'required' if p.obligatoria }}></textarea>
+
+                {% elif p.tipo == 'numero' %}
+                    <input type="number" step="any" name="pregunta_{{ p.id_pregunta }}" class="form-control" style="max-width: 200px;"
+                           {{ 'required' if p.obligatoria }}>
+
+                {% elif p.tipo == 'si_no' %}
+                    <div class="d-flex gap-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="pregunta_{{ p.id_pregunta }}"
+                                   value="si" id="p{{ p.id_pregunta }}_si" {{ 'required' if p.obligatoria }}>
+                            <label class="form-check-label" for="p{{ p.id_pregunta }}_si">Sí</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="pregunta_{{ p.id_pregunta }}"
+                                   value="no" id="p{{ p.id_pregunta }}_no">
+                            <label class="form-check-label" for="p{{ p.id_pregunta }}_no">No</label>
+                        </div>
+                    </div>
+
+                {% elif p.tipo == 'opcion_unica' %}
+                    {% for o in p.opciones %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="pregunta_{{ p.id_pregunta }}"
+                               value="{{ o.id_opcion }}" id="op{{ o.id_opcion }}"
+                               {{ 'required' if p.obligatoria }}>
+                        <label class="form-check-label" for="op{{ o.id_opcion }}">{{ o.texto }}</label>
+                    </div>
+                    {% endfor %}
+
+                {% elif p.tipo == 'opcion_multiple' %}
+                    <div {% if p.obligatoria %}data-multiple-obligatoria{% endif %}>
+                        {% for o in p.opciones %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="pregunta_{{ p.id_pregunta }}"
+                                   value="{{ o.id_opcion }}" id="op{{ o.id_opcion }}">
+                            <label class="form-check-label" for="op{{ o.id_opcion }}">{{ o.texto }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-send-check me-1"></i>Enviar respuestas
+            </button>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// En opción múltiple obligatoria: exige al menos una casilla marcada.
+document.querySelectorAll('[data-multiple-obligatoria]').forEach(grupo => {
+    const cajas = grupo.querySelectorAll('input[type="checkbox"]');
+    const actualizar = () => {
+        const alguna = Array.from(cajas).some(c => c.checked);
+        cajas.forEach(c => c.required = !alguna);
+    };
+    cajas.forEach(c => c.addEventListener('change', actualizar));
+    actualizar();
+});
+</script>
+{% endblock %}

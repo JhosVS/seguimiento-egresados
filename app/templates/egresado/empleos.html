@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block titulo %}Mis empleos{% endblock %}
+
+{% block contenido %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-briefcase me-2"></i>Mis empleos</h4>
+    <a href="{{ url_for('egresado.nuevo_empleo') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Registrar empleo
+    </a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        {% if empleos %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Cargo</th>
+                        <th>Empresa / Institución</th>
+                        <th>Sector</th>
+                        <th>Tipo contrato</th>
+                        <th>Período</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for emp in empleos %}
+                <tr>
+                    <td class="text-muted small">{{ loop.index }}</td>
+                    <td class="fw-semibold small">{{ emp.cargo }}</td>
+                    <td class="small">{{ emp.empresa_nombre }}</td>
+                    <td class="small text-muted">{{ emp.sector.nombre if emp.sector else '—' }}</td>
+                    <td class="small">{{ emp.tipo_contrato or '—' }}</td>
+                    <td class="small">
+                        {{ emp.fecha_inicio.strftime('%b %Y') if emp.fecha_inicio else '—' }}
+                        —
+                        {{ emp.fecha_fin.strftime('%b %Y') if emp.fecha_fin else 'Presente' }}
+                    </td>
+                    <td>
+                        {% if emp.es_actual %}
+                            <span class="badge bg-success">Actual</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Finalizado</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        <form method="POST"
+                              action="{{ url_for('egresado.eliminar_empleo', id=emp.id_empleo) }}"
+                              onsubmit="return confirm('¿Eliminar este empleo?')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-briefcase fs-1"></i>
+            <p class="mt-2">Aún no tienes empleos registrados.</p>
+            <a href="{{ url_for('egresado.nuevo_empleo') }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>Registrar tu primer empleo
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

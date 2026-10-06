@@ -1,0 +1,243 @@
+{% extends 'base_public.html' %}
+
+{% block title %}Bolsa de trabajo — Egresados UNDAC{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ofertas.css') }}">
+<style>
+    /* Estilos de apoyo para scroll y selección limpia */
+    .lista-ofertas-container {
+        max-height: 750px;
+        overflow-y: auto;
+    }
+    .card-mini {
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        border: 1px solid #e9ecef;
+    }
+    .card-mini:hover {
+        border-color: #0d6efd;
+        background-color: #f8f9fa;
+    }
+    .card-mini.seleccionada {
+        border-left: 4px solid #0d6efd !important;
+        background-color: #f0f7ff;
+    }
+    .sticky-panel {
+        position: sticky;
+        top: 20px;
+        max-height: 750px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Encabezado Principal -->
+    <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-3">
+        <div>
+            <h4 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                <i class="bi bi-briefcase-fill text-primary"></i> Bolsa de Trabajo UNDAC
+                {% if ofertas %}
+                <span class="badge rounded-pill bg-primary fs-6 fw-normal">{{ ofertas|length }}</span>
+                {% endif %}
+            </h4>
+            <p class="text-muted small mb-0">
+                Oportunidades laborales vigentes para egresados y estudiantes de Ingeniería de Sistemas.
+            </p>
+        </div>
+    </div>
+
+    {% if ofertas %}
+    <!-- Grid Principal (Lista 5 Cols / Detalle 7 Cols) -->
+    <div class="row g-3 mb-5">
+
+        <!-- Lista de Ofertas -->
+        <div class="col-lg-5">
+            <div class="lista-ofertas-container pe-1">
+                {% for o in ofertas %}
+                <div class="card card-mini shadow-sm p-3 mb-2 rounded-3"
+                     data-id="{{ o.id_oferta }}"
+                     onclick="mostrarDetalle({{ o.id_oferta }})">
+                    
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <span class="fw-bold text-dark small text-truncate pe-2" style="max-width: 80%;">
+                            {{ o.titulo }}
+                        </span>
+                        <span class="badge bg-light text-dark border small ms-auto" style="font-size: 0.65rem;">
+                            {{ o.tipo_oferta or 'Empleo' }}
+                        </span>
+                    </div>
+
+                    <div class="text-secondary small mb-2 d-flex align-items-center gap-1">
+                        <i class="bi bi-building"></i>
+                        <span class="text-truncate">{{ o.empresa_nombre or 'Empresa no especificada' }}</span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3 text-muted small" style="font-size: 0.75rem;">
+                        <span><i class="bi bi-geo-alt me-1"></i>{{ o.ubicacion or 'No especificada' }}</span>
+                        {% if o.modalidad %}
+                        <span class="badge bg-primary bg-opacity-10 text-primary border-0" style="font-size: 0.65rem;">
+                            {{ o.modalidad }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Panel de Detalle -->
+        <div class="col-lg-7">
+            <div class="card shadow-sm border-0 sticky-panel" id="panel-detalle">
+                <div class="card-body p-0">
+                    <!-- Estado Inicial Vacío -->
+                    <div class="detalle-vacio text-center py-5 px-3" id="detalle-vacio">
+                        <div class="bg-light rounded-circle d-inline-flex p-3 mb-3">
+                            <i class="bi bi-cursor text-muted fs-3"></i>
+                        </div>
+                        <h6 class="fw-semibold text-secondary">Selecciona una vacante</h6>
+                        <p class="small text-muted mb-0">Haz clic en cualquiera de las ofertas de la izquierda para ver los requisitos y postular.</p>
+                    </div>
+
+                    <!-- Contenido Dinámico inyectado por JS -->
+                    <div id="detalle-contenido" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Script con los datos dinámicos -->
+    <script id="datos-ofertas" type="application/json">{{ ofertas_json | safe }}</script>
+
+    {% else %}
+    <!-- Estado Vacío General -->
+    <div class="card border-0 bg-light text-center py-5 my-4 rounded-3">
+        <div class="card-body">
+            <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+            <h6 class="fw-semibold">No hay ofertas publicadas</h6>
+            <p class="small text-muted mb-0">En este momento no hay convocatorias activas registradas en la facultad.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Portales Recomendados -->
+    <div class="mt-5 pt-3 border-top">
+        <div class="mb-3">
+            <h6 class="fw-bold mb-1 text-uppercase text-secondary small"><i class="bi bi-globe2 me-1"></i> Portales de Empleo Externos</h6>
+            <p class="text-muted small mb-0">Plataformas recomendadas para buscar oportunidades adicionales en tecnología.</p>
+        </div>
+
+        <div class="row g-3">
+            {% for p in portales %}
+            <div class="col-md-6 col-xl-4">
+                <div class="card shadow-sm border-0 h-100 bg-light">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
+                        <div class="d-flex align-items-center gap-3 mb-2">
+                            <div class="portal-icon rounded-3 d-flex align-items-center justify-content-center text-white px-2 py-1" style="background:{{ p.color }}; width:38px; height:38px;">
+                                <i class="bi {{ p.icono }} fs-5"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-0 small">{{ p.titulo }}</h6>
+                                <span class="text-muted d-block" style="font-size:0.7rem;">{{ p.subtitulo }}</span>
+                            </div>
+                        </div>
+                        <p class="small text-secondary mb-3" style="font-size: 0.8rem;">{{ p.descripcion }}</p>
+                        <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-dark w-100 fw-semibold" style="font-size:0.75rem;">
+                            <i class="bi bi-box-arrow-up-right me-1"></i> Visitar portal
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+const ofertasData = JSON.parse(document.getElementById('datos-ofertas')?.textContent || '[]');
+
+if (ofertasData.length > 0) {
+    mostrarDetalle(ofertasData[0].id);
+}
+
+function mostrarDetalle(id) {
+    const o = ofertasData.find(x => x.id == id);
+    if (!o) return;
+
+    // Marcador de selección activa en la lista
+    document.querySelectorAll('.card-mini').forEach(c => c.classList.remove('seleccionada'));
+    document.querySelector(`.card-mini[data-id="${id}"]`)?.classList.add('seleccionada');
+    
+    document.getElementById('detalle-vacio').style.display = 'none';
+    const cont = document.getElementById('detalle-contenido');
+    cont.style.display = 'block';
+
+    const esApi = o.fuente === 'automatico' || (o.ruta_imagen && o.ruta_imagen.startsWith('http'));
+    const tieneImagen = Boolean(o.ruta_imagen);
+
+    cont.innerHTML = `
+        <div class="p-4">
+            <!-- Encabezado -->
+            <div class="d-flex align-items-center gap-3 mb-3 border-bottom pb-3">
+                ${tieneImagen && esApi ? 
+                    `<img src="${o.ruta_imagen}" alt="Logo" class="rounded border p-1" style="width:54px; height:54px; object-fit:contain;">` : 
+                    `<div class="rounded-circle bg-primary bg-opacity-10 p-3"><i class="bi bi-briefcase-fill text-primary fs-4"></i></div>`
+                }
+                <div>
+                    <h5 class="fw-bold mb-1">${o.titulo}</h5>
+                    <div class="text-muted small"><i class="bi bi-building me-1"></i>${o.empresa || 'Empresa no especificada'}</div>
+                </div>
+            </div>
+
+            <!-- AFICHE PUBLICITARIO (Si es oferta manual con imagen) -->
+            ${tieneImagen && !esApi ? `
+                <div class="mb-3 text-center bg-light p-2 rounded border">
+                    <a href="${o.ruta_imagen}" target="_blank" title="Haga clic para ver en tamaño completo">
+                        <img src="${o.ruta_imagen}" alt="Afiche de la oferta" class="img-fluid rounded shadow-sm" style="max-height: 450px; object-fit: contain;">
+                    </a>
+                    <div class="form-text mt-1"><i class="bi bi-zoom-in me-1"></i>Haz clic en la imagen para verla en tamaño completo</div>
+                </div>
+            ` : ''}
+
+            <!-- Datos Rápidos Grid -->
+            <div class="row g-2 bg-light p-2 rounded mb-3 border">
+                ${itemGrid('Ubicación', o.ubicacion)}
+                ${itemGrid('Modalidad', o.modalidad)}
+                ${itemGrid('Jornada', o.jornada)}
+                ${itemGrid('Sueldo', o.remuneracion)}
+                ${itemGrid('Publicado', o.fecha_publicacion)}
+            </div>
+
+            <!-- Descripción, Funciones y Requisitos -->
+            ${o.descripcion ? `<h6 class="fw-bold text-primary small text-uppercase mt-3">Descripción</h6><p class="small text-secondary">${o.descripcion}</p>` : ''}
+            ${o.funciones ? `<h6 class="fw-bold text-primary small text-uppercase mt-3">Funciones</h6><p class="small text-secondary">${o.funciones.replace(/\n/g,'<br>')}</p>` : ''}
+            ${o.requisitos ? `<h6 class="fw-bold text-primary small text-uppercase mt-3">Requisitos</h6><p class="small text-secondary">${o.requisitos.replace(/\n/g,'<br>')}</p>` : ''}
+
+            <!-- Botón de Postulación -->
+            ${o.url_original ? `
+                <div class="mt-4 pt-2 border-top text-center">
+                    <a href="${o.url_original}" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 fw-bold py-2">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Postular / Ver oferta original
+                    </a>
+                </div>` : ''}
+        </div>
+    `;
+}
+
+function itemGrid(label, valor) {
+    if (!valor) return '';
+    return `
+        <div class="col-6 col-md-4">
+            <span class="d-block text-muted" style="font-size:.7rem;">${label}</span>
+            <span class="fw-semibold small">${valor}</span>
+        </div>`;
+}
+</script>
+{% endblock %}

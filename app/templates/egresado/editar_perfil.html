@@ -1,0 +1,362 @@
+<!-- app/templates/egresado/editar_perfil.html -->
+{% extends "base.html" %}
+{% block titulo %}Editar Perfil{% endblock %}
+
+{% block contenido %}
+
+{% macro badge_tag(h) %}
+<span class="badge bg-light text-dark border d-flex align-items-center gap-2 py-2 px-3" data-id="{{ h.id_habilidad }}">
+    <span class="texto-tag">{{ h.nombre }}</span>
+    <button type="button" class="btn btn-sm p-0 border-0 text-danger btn-quitar-tag" style="line-height:0;">
+        <i class="bi bi-x-circle"></i>
+    </button>
+</span>
+{% endmacro %}
+
+<div class="container py-3">
+
+    <!-- Encabezado de página -->
+    <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom">
+        <div class="d-flex align-items-center gap-3">
+            <a href="{{ url_for('egresado.perfil') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+            <div>
+                <h4 class="mb-0 fw-bold">Editar Perfil</h4>
+                <div class="text-muted small">Modifica tus datos personales, de ubicación, contacto y habilidades.</div>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" id="form-editar-perfil">
+
+        <!-- 1. FOTO DE PERFIL + INFORMACIÓN ACADÉMICA INSTITUCIONAL -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white fw-semibold py-3 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-building-lock me-2 text-primary"></i>Información Académica e Identificación</span>
+                <span class="badge bg-secondary-subtle text-secondary border"><i class="bi bi-lock-fill me-1"></i>Protegido</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-4 align-items-center">
+                    
+                    <!-- Foto de Perfil -->
+                    <div class="col-lg-3 text-center border-end-lg">
+                        <div class="position-relative mx-auto mb-2" style="width:130px;">
+                            <img id="preview-foto"
+                                 src="{{ url_for('static', filename=e.foto) if e.foto else '' }}"
+                                 class="foto-perfil {{ '' if e.foto else 'd-none' }}"
+                                 style="width:130px;height:130px;object-fit:cover;border-radius:50%; border:3px solid #f8f9fa;">
+                            <div id="placeholder-foto"
+                                 class="d-flex align-items-center justify-content-center bg-secondary rounded-circle text-white {{ 'd-none' if e.foto else '' }}"
+                                 style="width:130px;height:130px;">
+                                <i class="bi bi-person-fill" style="font-size:3.5rem;"></i>
+                            </div>
+                        </div>
+
+                        <label for="input-foto" class="btn btn-sm btn-outline-primary mt-1">
+                            <i class="bi bi-camera me-1"></i>
+                            <span id="texto-btn-foto">{{ 'Cambiar foto' if e.foto else 'Subir foto' }}</span>
+                        </label>
+                        <input type="file" id="input-foto" name="foto" class="d-none" accept=".png,.jpg,.jpeg,.webp">
+
+                        <div id="badge-foto-ok" class="d-none mt-2">
+                            <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>Foto cargada</span>
+                        </div>
+                        <div class="text-muted small mt-1" style="font-size:0.75rem;">PNG, JPG o WEBP (máx. 5MB)</div>
+                    </div>
+
+                    <!-- Datos Académicos Institucionales (Deshabilitados) -->
+                    <div class="col-lg-9">
+                        <div class="p-3 bg-light-subtle rounded border">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label class="form-label small text-muted fw-semibold">Facultad</label>
+                                    <input type="text" class="form-control form-control-sm bg-white" 
+                                           value="{{ e.curricula.programa.facultad.nombre if (e.curricula and e.curricula.programa and e.curricula.programa.facultad) else '—' }}" disabled readonly>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label small text-muted fw-semibold">Escuela / Programa</label>
+                                    <input type="text" class="form-control form-control-sm bg-white" 
+                                           value="{{ e.curricula.programa.nombre if (e.curricula and e.curricula.programa) else '—' }}" disabled readonly>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted fw-semibold">Currícula</label>
+                                    <input type="text" class="form-control form-control-sm bg-white" 
+                                           value="{{ e.curricula.nombre if e.curricula else '—' }}" disabled readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. DATOS PERSONALES -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white fw-semibold py-3">
+                <i class="bi bi-person-badge me-2 text-primary"></i>Datos Personales
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">DNI / Documento</label>
+                        <input type="text" name="dni" class="form-control" value="{{ e.dni or '' }}" placeholder="Número de DNI">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">Nombres</label>
+                        <input type="text" name="nombres" class="form-control" value="{{ e.nombres or '' }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">Apellido Paterno</label>
+                        <input type="text" name="apellido_paterno" class="form-control" value="{{ e.apellido_paterno or '' }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">Apellido Materno</label>
+                        <input type="text" name="apellido_materno" class="form-control" value="{{ e.apellido_materno or '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Año de Ingreso</label>
+                        <input type="number" name="anio_ingreso" class="form-control" value="{{ e.anio_ingreso or '' }}" placeholder="Ej: 2018">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Año de Egreso</label>
+                        <input type="number" name="anio_egreso" class="form-control" value="{{ e.anio_egreso or '' }}" placeholder="Ej: 2023">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Período Académico de Egreso</label>
+                        <input type="text" name="periodo_ingreso" class="form-control" value="{{ e.periodo_ingreso or '' }}" placeholder="Ej: 25A, 25B">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. UBICACIÓN -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white fw-semibold py-3">
+                <i class="bi bi-geo-alt me-2 text-primary"></i>Ubicación
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label small">País</label>
+                        <input type="text" name="pais" class="form-control" value="{{ e.pais or 'Perú' }}">
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label small">Región / Departamento</label>
+                        <input type="text" name="region" class="form-control" value="{{ e.region or '' }}">
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label small">Provincia</label>
+                        <input type="text" name="provincia" class="form-control" value="{{ e.provincia or '' }}">
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label small">Distrito</label>
+                        <input type="text" name="distrito" class="form-control" value="{{ e.distrito or '' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. CONTACTO Y REDES SOCIALES (FUSIONADOS) -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white fw-semibold py-3">
+                <i class="bi bi-telephone-outbound me-2 text-primary"></i>Contacto y Redes Sociales
+            </div>
+            <div class="card-body">
+                
+                <!-- Sección Canales Directos -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small">Correo Institucional (Acceso al Sistema)</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope-at"></i></span>
+                            <input type="email" name="correo_institucional" class="form-control"
+                                   value="{{ e.usuario.correo if e.usuario else '' }}" required>
+                        </div>
+                        <div class="form-text text-warning-emphasis bg-warning-subtle p-2 rounded mt-1 small">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                            Este correo es tu <strong>usuario para iniciar sesión</strong>.
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">Correo Personal Alternativo</label>
+                        <input type="email" name="correo_personal" class="form-control"
+                               value="{{ e.correo_personal or '' }}" placeholder="correo@ejemplo.com">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">Teléfono / Celular</label>
+                        <input type="text" name="telefono" class="form-control"
+                               value="{{ e.telefono or '' }}" placeholder="999 999 999">
+                    </div>
+                </div>
+
+                <hr class="my-3 text-muted">
+
+                <!-- Sección Redes Sociales -->
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label small"><i class="bi bi-linkedin me-1 text-primary"></i>LinkedIn</label>
+                        <input type="url" name="linkedin" class="form-control"
+                               value="{{ e.linkedin or '' }}" placeholder="https://linkedin.com/in/...">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small"><i class="bi bi-facebook me-1 text-primary"></i>Facebook</label>
+                        <input type="url" name="facebook" class="form-control"
+                               value="{{ e.facebook or '' }}" placeholder="https://facebook.com/...">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small"><i class="bi bi-tiktok me-1 text-dark"></i>TikTok</label>
+                        <input type="text" name="tiktok" class="form-control"
+                               value="{{ e.tiktok or '' }}" placeholder="usuario">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 5. HABILIDADES E INTERESES -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white fw-semibold py-3 d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-stars me-2 text-primary"></i>Habilidades e Intereses</span>
+                <span class="text-muted small fw-normal">Se agregan y eliminan dinámicamente</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small">Habilidades Profesionales</label>
+                        <div class="d-flex gap-2 mb-2">
+                            <input type="text" id="input-habilidad" class="form-control form-control-sm" placeholder="Ej: Python, Gestión de Proyectos...">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="agregarTag('habilidad')">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 p-2 bg-light rounded" id="contenedor-habilidad" style="min-height: 50px;">
+                            {% for h in e.habilidades if h.tipo == 'habilidad' %}
+                                {{ badge_tag(h) }}
+                            {% else %}
+                                <span class="text-muted small p-1" id="vacio-habilidad">Sin habilidades registradas.</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small">Intereses y Áreas de Desarrollo</label>
+                        <div class="d-flex gap-2 mb-2">
+                            <input type="text" id="input-interes" class="form-control form-control-sm" placeholder="Ej: Inteligencia Artificial, Docencia...">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="agregarTag('interes')">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 p-2 bg-light rounded" id="contenedor-interes" style="min-height: 50px;">
+                            {% for h in e.habilidades if h.tipo == 'interes' %}
+                                {{ badge_tag(h) }}
+                            {% else %}
+                                <span class="text-muted small p-1" id="vacio-interes">Sin intereses registrados.</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. BOTONES DE ACCIÓN (GUARDAR Y CANCELAR AL FINAL) -->
+        <div class="d-flex gap-2 justify-content-end mb-5">
+            <a href="{{ url_for('egresado.perfil') }}" class="btn btn-outline-secondary px-4">Cancelar</a>
+            <button type="submit" class="btn btn-primary px-4">
+                <i class="bi bi-check-lg me-1"></i>Guardar Cambios
+            </button>
+        </div>
+
+    </form>
+
+</div>
+
+<script>
+// Preview de foto en tiempo real
+const inputFoto      = document.getElementById('input-foto');
+const previewFoto     = document.getElementById('preview-foto');
+const placeholderFoto = document.getElementById('placeholder-foto');
+const badgeFotoOk     = document.getElementById('badge-foto-ok');
+const textoBtnFoto    = document.getElementById('texto-btn-foto');
+
+inputFoto.addEventListener('change', () => {
+    const archivo = inputFoto.files[0];
+    if (!archivo) return;
+
+    const lector = new FileReader();
+    lector.onload = (e) => {
+        previewFoto.src = e.target.result;
+        previewFoto.classList.remove('d-none');
+        placeholderFoto.classList.add('d-none');
+        badgeFotoOk.classList.remove('d-none');
+        textoBtnFoto.textContent = 'Cambiar foto';
+    };
+    lector.readAsDataURL(archivo);
+});
+
+// Lógica de Habilidades / Intereses AJAX
+function crearBadge(id, nombre) {
+    const badge = document.createElement('span');
+    badge.className = 'badge bg-light text-dark border d-flex align-items-center gap-2 py-2 px-3';
+    badge.dataset.id = id;
+    badge.innerHTML = `
+        <span class="texto-tag">${nombre}</span>
+        <button type="button" class="btn btn-sm p-0 border-0 text-danger btn-quitar-tag" style="line-height:0;">
+            <i class="bi bi-x-circle"></i>
+        </button>
+    `;
+    badge.querySelector('.btn-quitar-tag').addEventListener('click', () => quitarTag(badge, id));
+    return badge;
+}
+
+function quitarTag(badge, id) {
+    if (!confirm('¿Deseas eliminar este elemento?')) return;
+
+    fetch(`/habilidades/${id}/eliminar`, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) badge.remove();
+        else alert(data.error || 'No se pudo eliminar.');
+    })
+    .catch(() => alert('Error de conexión.'));
+}
+
+function agregarTag(tipo) {
+    const input = document.getElementById(tipo === 'habilidad' ? 'input-habilidad' : 'input-interes');
+    const valor = input.value.trim();
+    if (!valor) return;
+
+    const datos = new FormData();
+    datos.append('nombre', valor);
+    datos.append('tipo', tipo);
+
+    fetch("{{ url_for('egresado.nueva_habilidad') }}", {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: datos
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.ok) { alert(data.error || 'No se pudo agregar.'); return; }
+        const contenedor = document.getElementById(`contenedor-${tipo}`);
+        const vacio = document.getElementById(`vacio-${tipo}`);
+        if (vacio) vacio.remove();
+        contenedor.appendChild(crearBadge(data.id_habilidad, data.nombre));
+        input.value = '';
+    })
+    .catch(() => alert('Error de conexión.'));
+}
+
+document.querySelectorAll('.btn-quitar-tag').forEach(btn => {
+    const badge = btn.closest('[data-id]');
+    btn.addEventListener('click', () => quitarTag(badge, badge.dataset.id));
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,188 @@
+<!-- app/templates/admin/detalle_encuesta.html -->
+{% extends "base.html" %}
+{% block titulo %}{{ encuesta.nombre }}{% endblock %}
+
+{% block contenido %}
+{% set es_admin = rol_activo == 'administrador' %}
+
+<!-- Navegación superior -->
+<div class="mb-3">
+    <a href="{{ url_for('admin.encuestas') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Volver al listado de encuestas
+    </a>
+</div>
+
+<!-- Encabezado y acciones -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+            <div>
+                <div class="d-flex align-items-center gap-2">
+                    <h4 class="fw-semibold m-0">{{ encuesta.nombre }}</h4>
+                    <span class="badge rounded-pill {% if encuesta.estado == 'publicada' %}text-bg-success{% elif encuesta.estado == 'cerrada' %}text-bg-secondary{% else %}text-bg-warning{% endif %}">
+                        {{ encuesta.estado|capitalize }}
+                    </span>
+                </div>
+
+                <div class="text-muted small mt-2 d-flex align-items-center gap-3 flex-wrap">
+                    <span><i class="bi bi-calendar"></i> Año {{ encuesta.anio }}</span>
+                    <span><i class="bi bi-people"></i> {{ total_respuestas }} respuesta(s) recibida(s)</span>
+                    {% if encuesta.fecha_inicio %}
+                    <span><i class="bi bi-play-circle"></i> Inicio: {{ encuesta.fecha_inicio.strftime('%d/%m/%Y') }}</span>
+                    {% endif %}
+                    {% if encuesta.fecha_fin %}
+                    <span class="text-secondary">
+                        <i class="bi bi-clock-history"></i> Cierre automático: <strong>{{ encuesta.fecha_fin.strftime('%d/%m/%Y') }}</strong>
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                {% if es_admin %}
+                    {% if encuesta.estado == 'borrador' %}
+                    <form method="POST" action="{{ url_for('admin.publicar_encuesta', id=encuesta.id_encuesta) }}"
+                          onsubmit="return confirm('¿Publicar esta encuesta? Los egresados podrán responderla y ya no podrás modificar sus preguntas.')">
+                        <button class="btn btn-sm btn-success"><i class="bi bi-send"></i> Publicar</button>
+                    </form>
+                    {% endif %}
+
+                    {% if encuesta.estado == 'publicada' %}
+                    <form method="POST" action="{{ url_for('admin.cerrar_encuesta', id=encuesta.id_encuesta) }}"
+                          onsubmit="return confirm('¿Cerrar esta encuesta? Los egresados ya no podrán responderla.')">
+                        <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-lock"></i> Cerrar encuesta</button>
+                    </form>
+                    {% endif %}
+
+                    {% if total_respuestas == 0 %}
+                    <form method="POST" action="{{ url_for('admin.eliminar_encuesta', id=encuesta.id_encuesta) }}"
+                          onsubmit="return confirm('¿Eliminar la encuesta completa con todas sus preguntas? Esta acción no se puede deshacer.')">
+                        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Eliminar</button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+
+                <a href="{{ url_for('admin.resultados_encuesta', id=encuesta.id_encuesta) }}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-bar-chart"></i> Ver resultados
+                </a>
+            </div>
+        </div>
+
+        {% if encuesta.descripcion %}
+        <hr class="my-3 text-muted opacity-25">
+        <p class="text-muted small m-0">{{ encuesta.descripcion }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Formulario para agregar pregunta (solo administrador, solo en borrador) -->
+{% if es_admin %}
+    {% if encuesta.estado == 'borrador' %}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h6 class="fw-semibold mb-3"><i class="bi bi-plus-circle"></i> Agregar nueva pregunta</h6>
+            <form method="POST" action="{{ url_for('admin.nueva_pregunta', id=encuesta.id_encuesta) }}">
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <label class="form-label small mb-1">Enunciado de la pregunta <span class="text-danger">*</span></label>
+                        <input type="text" name="texto" class="form-control form-control-sm" required
+                               placeholder="Ej: ¿En qué sector laboras actualmente?">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small mb-1">Tipo de respuesta <span class="text-danger">*</span></label>
+                        <select name="tipo" id="tipo-pregunta" class="form-select form-select-sm" required>
+                            <option value="texto">Texto libre</option>
+                            <option value="numero">Número</option>
+                            <option value="si_no">Sí / No</option>
+                            <option value="opcion_unica">Opción única</option>
+                            <option value="opcion_multiple">Opción múltiple</option>
+                        </select>
+                    </div>
+                    <div class="col-12 d-none" id="bloque-opciones">
+                        <label class="form-label small mb-1">Opciones (una por línea, mínimo 2) <span class="text-danger">*</span></label>
+                        <textarea name="opciones" id="campo-opciones" class="form-control form-control-sm" rows="3"
+                                  placeholder="Opción 1&#10;Opción 2&#10;Opción 3"></textarea>
+                    </div>
+                    <div class="col-12 d-flex justify-content-between align-items-center pt-2">
+                        <div class="form-check">
+                            <input type="checkbox" name="obligatoria" id="obligatoria" class="form-check-input" checked>
+                            <label class="form-check-label small" for="obligatoria">Respuesta obligatoria</label>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="bi bi-plus-lg"></i> Guardar pregunta
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info border-0 shadow-sm small d-flex align-items-center gap-2 mb-4">
+        <i class="bi bi-info-circle-fill"></i>
+        <span>Esta encuesta está <strong>{{ encuesta.estado }}</strong>. La estructura de preguntas ya no se puede modificar.</span>
+    </div>
+    {% endif %}
+{% endif %}
+
+<!-- Preguntas configuradas -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom">
+        <h6 class="fw-semibold m-0">Preguntas configuradas ({{ preguntas|length }})</h6>
+    </div>
+    <div class="card-body p-0">
+        {% if preguntas %}
+        <div class="list-group list-group-flush">
+            {% for p in preguntas %}
+            <div class="list-group-item py-3 px-3">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                        <div class="fw-medium text-dark">
+                            {{ loop.index }}. {{ p.texto }}
+                            {% if p.obligatoria %}<span class="text-danger" title="Obligatoria">*</span>{% endif %}
+                        </div>
+                        <div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge bg-light text-dark border fw-normal">
+                                {{ p.tipo.replace('_', ' ')|capitalize }}
+                            </span>
+                            {% if p.opciones %}
+                            <span class="text-muted small">
+                                <strong>Opciones:</strong> {{ p.opciones|map(attribute='texto')|join(' · ') }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if es_admin and encuesta.estado == 'borrador' %}
+                    <form method="POST"
+                          action="{{ url_for('admin.eliminar_pregunta', id=encuesta.id_encuesta, id_pregunta=p.id_pregunta) }}"
+                          onsubmit="return confirm('¿Eliminar esta pregunta de la encuesta?')">
+                        <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Eliminar pregunta">
+                            <i class="bi bi-trash"></i> Eliminar
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5 small">
+            No se han agregado preguntas a esta encuesta.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+const tipoSelect = document.getElementById('tipo-pregunta');
+const bloqueOpciones = document.getElementById('bloque-opciones');
+const campoOpciones = document.getElementById('campo-opciones');
+if (tipoSelect) {
+    tipoSelect.addEventListener('change', function () {
+        const necesita = this.value === 'opcion_unica' || this.value === 'opcion_multiple';
+        bloqueOpciones.classList.toggle('d-none', !necesita);
+        campoOpciones.required = necesita;
+    });
+}
+</script>
+{% endblock %}

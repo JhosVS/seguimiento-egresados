@@ -1,0 +1,209 @@
+<!-- app/templates/public/index.html -->
+{% extends 'base_public.html' %}
+
+{% block title %}Inicio - Sistema de Egresados UNDAC{% endblock %}
+
+{% block head_extra %}
+    <!-- CSS adicional específico para el hero, si lo necesitas -->
+{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<section class="hero-panorama" id="hero" style="background-image: url('{{ url_for('static', filename='img/hero_bg3.jpg') }}');">
+    <div class="hero-overlay"></div>
+    <div class="container hero-content py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center text-white">
+                <span class="badge bg-light text-dark bg-opacity-75 fw-semibold px-3 py-2 mb-4">
+                    <i class="bi bi-mortarboard-fill me-1"></i> UNIVERSIDAD NACIONAL DANIEL ALCIDES CARRIÓN — PASCO
+                </span>
+                <h1 class="display-4 fw-bold mb-3">Sistema de Seguimiento<br>de Egresados</h1>
+                <p class="lead mb-4 text-white-75">
+                    Plataforma para el registro y seguimiento de la trayectoria académica y laboral de sus egresados.
+                </p>
+                <div class="d-flex gap-3 justify-content-center flex-wrap">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-light btn-lg fw-semibold text-primary">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Ingresar al sistema
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Indicadores del slideshow -->
+    <div class="hero-dots">
+        <span class="hero-dot" data-index="0"></span>
+        <span class="hero-dot active" data-index="1"></span>
+        <span class="hero-dot" data-index="2"></span>
+    </div>
+</section>
+
+<!-- STATS BAR -->
+<section class="bg-primary py-4" id="estadisticas">
+    <div class="container">
+        <div class="row g-4 justify-content-center">
+            <div class="col-6 col-md-4">
+                <div class="stat-card text-white text-center p-4 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-25">
+                    <i class="bi bi-people-fill display-5 d-block mb-2"></i>
+                    <div class="stat-num display-4 fw-bold">{{ total_egresados }}</div>
+                    <div class="stat-label text-white-50">Egresados registrados</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4">
+                <div class="stat-card text-white text-center p-4 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-25">
+                    <i class="bi bi-briefcase-fill display-5 d-block mb-2"></i>
+                    <div class="stat-num display-4 fw-bold">{{ ofertas }}</div>
+                    <div class="stat-label text-white-50">Ofertas laborales activas</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CARACTERÍSTICAS -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">¿Qué puedes hacer en el sistema?</h2>
+            <p class="text-muted">Accede con tu código universitario y mantén tu perfil profesional actualizado.</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-6 col-md-3">
+                <div class="feature-card text-center p-4 bg-white rounded-4 shadow-sm h-100">
+                    <div class="feature-icon bg-primary bg-opacity-10 text-primary rounded-3 p-3 d-inline-block mb-3">
+                        <i class="bi bi-person-vcard-fill fs-3"></i>
+                    </div>
+                    <h5 class="fw-bold">Perfil del egresado</h5>
+                    <p class="small text-muted">Datos académicos y personales sincronizados con la API de la UNDAC.</p>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="feature-card text-center p-4 bg-white rounded-4 shadow-sm h-100">
+                    <div class="feature-icon bg-success bg-opacity-10 text-success rounded-3 p-3 d-inline-block mb-3">
+                        <i class="bi bi-patch-check-fill fs-3"></i>
+                    </div>
+                    <h5 class="fw-bold">Grados académicos</h5>
+                    <p class="small text-muted">Registra y verifica bachiller, título, maestría, doctorado y PhD.</p>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="feature-card text-center p-4 bg-white rounded-4 shadow-sm h-100">
+                    <div class="feature-icon bg-warning bg-opacity-10 text-warning rounded-3 p-3 d-inline-block mb-3">
+                        <i class="bi bi-award-fill fs-3"></i>
+                    </div>
+                    <h5 class="fw-bold">Certificaciones</h5>
+                    <p class="small text-muted">Cursos, diplomados y especializaciones adicionales.</p>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="feature-card text-center p-4 bg-white rounded-4 shadow-sm h-100">
+                    <div class="feature-icon bg-purple bg-opacity-10 text-purple rounded-3 p-3 d-inline-block mb-3">
+                        <i class="bi bi-briefcase-fill fs-3"></i>
+                    </div>
+                    <h5 class="fw-bold">Trayectoria laboral</h5>
+                    <p class="small text-muted">Historial de empleos y experiencia profesional verificada.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SISTEMA Y BOLSA -->
+<section class="py-5">
+    <div class="container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <span class="badge bg-primary bg-opacity-10 text-primary fw-semibold px-3 py-2 mb-3">Acceso al sistema</span>
+                <h2 class="fw-bold text-primary">Sistema de Egresados UNDAC</h2>
+                <p class="text-muted">Si eres egresado de la Escuela de Ingeniería de Sistemas y Computación, accede con tu correo institucional. Registra tu formación académica, certificaciones y trayectoria laboral para mantener tu perfil profesional actualizado.</p>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg fw-semibold px-5">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Ingresar al sistema
+                </a>
+            </div>
+            <div class="col-lg-6 text-center">
+                <img src="{{ url_for('static', filename='img/preview_login.png') }}" alt="Vista del sistema" class="preview-img img-fluid rounded-4 shadow-lg">
+            </div>
+        </div>
+        <hr class="my-5">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6 order-lg-2">
+                <span class="badge bg-info bg-opacity-10 text-info fw-semibold px-3 py-2 mb-3">Oportunidades laborales</span>
+                <h2 class="fw-bold text-info">Bolsa de trabajo</h2>
+                <p class="text-muted">Consulta las ofertas laborales publicadas por la coordinación de la escuela y explora portales de empleo especializados en tecnología. Disponible para todos sin necesidad de iniciar sesión.</p>
+                <a href="{{ url_for('public.ofertas') }}" target="_blank" class="btn btn-outline-info btn-lg fw-semibold px-5">
+                    <i class="bi bi-briefcase me-2"></i>Ver bolsa de trabajo
+                </a>
+            </div>
+            <div class="col-lg-6 order-lg-1 text-center">
+                <img src="{{ url_for('static', filename='img/preview_bolsa.png') }}" alt="Bolsa de empleo" class="preview-img img-fluid rounded-4 shadow-lg">
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SECCIÓN REDES (con feed de Facebook) -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <span class="badge bg-primary bg-opacity-10 text-primary fw-semibold px-3 py-2 mb-3">Síguenos</span>
+                <h2 class="fw-bold text-primary">Mantente conectado</h2>
+                <p class="text-muted">Sigue la página oficial de la Escuela de Sistemas y Computación en Facebook para estar al tanto de noticias, eventos académicos y oportunidades laborales.</p>
+                <a href="https://web.facebook.com/sistemaspasco/" target="_blank" class="btn btn-primary btn-lg fw-semibold px-5">
+                    <i class="bi bi-facebook me-2"></i>Visitar página de Facebook
+                </a>
+            </div>
+            <div class="col-lg-6">
+                <div class="bg-white p-3 rounded-4 shadow-sm">
+                    <!-- Plugin de Facebook -->
+                    <div id="fb-root"></div>
+                    <div class="fb-page"
+                         data-href="https://www.facebook.com/sistemaspasco/"
+                         data-tabs="timeline"
+                         data-width="500"
+                         data-height="500"
+                         data-small-header="false"
+                         data-adapt-container-width="true"
+                         data-hide-cover="false"
+                         data-show-facepile="true">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts_extra %}
+<!-- Script del slideshow del hero -->
+<script>
+    const fondos = [
+        "{{ url_for('static', filename='img/hero_bg.jpg') }}",
+        "{{ url_for('static', filename='img/hero_bg2.jpg') }}",
+        "{{ url_for('static', filename='img/hero_bg3.jpg') }}"
+    ];
+    let actual = 0;
+    const hero = document.getElementById('hero');
+    const dots = document.querySelectorAll('.hero-dot');
+
+    function cambiarFondo(idx) {
+        actual = idx;
+        hero.style.backgroundImage = `url('${fondos[actual]}')`;
+        dots.forEach((d, i) => d.classList.toggle('active', i === actual));
+    }
+
+    dots.forEach(dot => {
+        dot.addEventListener('click', () => cambiarFondo(+dot.dataset.index));
+    });
+
+    // Inicia con la tercera imagen
+    cambiarFondo(2);
+
+    // Cambia cada 3 segundos
+    setInterval(() => cambiarFondo((actual + 1) % fondos.length), 3000);
+</script>
+
+<!-- SDK de Facebook (solo si no está ya cargado) -->
+<script async defer crossorigin="anonymous" 
+        src="https://connect.facebook.net/es_LA/sdk.js#xfbml=1&version=v18.0">
+</script>
+{% endblock %}

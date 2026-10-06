@@ -1,0 +1,15 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Flask-Bcrypt
+Flask-Mail
+Flask-APScheduler
+PyMySQL
+python-dotenv
+requests
+Flask-WTF
+google-search-results
+openpyxl
+matplotlib
+reportlab
+email-validator

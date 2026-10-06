@@ -1,0 +1,81 @@
+<!-- app/templates/egresado/certificados.html -->
+{% extends "base.html" %}
+{% block titulo %}Certificados y especializaciones{% endblock %}
+
+{% block contenido %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-patch-check me-2"></i>Certificados y especializaciones</h4>
+    <a href="{{ url_for('egresado.nuevo_certificado') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Agregar certificado
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if externos or internos %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Nombre</th>
+                        <th>Institución</th>
+                        <th>Tipo</th>
+                        <th>Fecha</th>
+                        <th>Credencial</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% set todos = externos + internos %}
+                {% for c in todos %}
+                <tr>
+                    <td class="text-muted small">{{ loop.index }}</td>
+                    <td class="fw-semibold small">
+                        {{ c.nombre_mostrar if c.nombre_mostrar is defined else c.nombre }}
+                    </td>
+                    <td class="small">{{ c.institucion_emisora }}</td>
+                    <td>
+                        <span class="badge {{ 'bg-info text-dark' if c.tipo == 'interno' else 'bg-secondary' }}">
+                            {{ c.tipo|capitalize }}
+                        </span>
+                    </td>
+                    <td class="small">
+                        {{ c.fecha_emision.strftime('%b %Y') if c.fecha_emision else '—' }}
+                    </td>
+                    <td>
+                        {% if c.url_credencial %}
+                        <a href="{{ c.url_credencial }}" target="_blank"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-link-45deg"></i>
+                        </a>
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="POST"
+                              action="{{ url_for('egresado.eliminar_certificado', id=c.id_certificado) }}"
+                              onsubmit="return confirm('¿Eliminar este certificado?')">
+                            <button class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-patch-check fs-1"></i>
+            <p class="mt-2">Aún no tienes certificados registrados.</p>
+            <a href="{{ url_for('egresado.nuevo_certificado') }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>Agregar tu primer certificado
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

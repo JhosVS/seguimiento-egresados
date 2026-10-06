@@ -1,0 +1,98 @@
+/* app/static/css/estilos.css */
+:root {
+    --undac-azul: #003876;
+    --undac-rojo: #C8102E;
+    --sidebar-w: 230px;
+    --sidebar-w-col: 62px;
+}
+
+body { background: #f4f6f9; font-family: 'Segoe UI', sans-serif; margin: 0; }
+
+/* ── SIDEBAR ── */
+#sidebar {
+    width: var(--sidebar-w);
+    min-height: 100vh;
+    background: var(--undac-azul);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    transition: width .25s ease;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+}
+#sidebar.sidebar-collapsed { width: var(--sidebar-w-col); }
+#sidebar.sidebar-collapsed .sidebar-text,
+#sidebar.sidebar-collapsed .sidebar-brand span,
+#sidebar.sidebar-collapsed .sidebar-user .overflow-hidden { display: none; }
+#sidebar.sidebar-collapsed #btn-colapsar i { transform: rotate(180deg); }
+
+.sidebar-header { background: rgba(0,0,0,.15); min-height: 56px; }
+.sidebar-brand   { font-weight: 700; font-size: .95rem; white-space: nowrap; }
+#btn-colapsar    { color: rgba(255,255,255,.7) !important; }
+
+.sidebar-user    { background: rgba(0,0,0,.1); }
+.x-small         { font-size: .72rem; }
+
+.sidebar-divider { border-color: rgba(255,255,255,.15); margin: 4px 0; }
+
+.sidebar-nav     { display: flex; flex-direction: column; gap: 2px; }
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    color: rgba(255,255,255,.8);
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: .9rem;
+    white-space: nowrap;
+    transition: background .15s;
+}
+.sidebar-link:hover  { background: rgba(255,255,255,.12); color: #fff; }
+.sidebar-link.active { background: rgba(255,255,255,.2);  color: #fff; font-weight: 600; }
+.sidebar-link i      { font-size: 1.1rem; flex-shrink: 0; }
+
+/* ── CONTENIDO ── */
+#page-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.topbar {
+    height: 48px;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+/* ── TARJETAS ── */
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.07);
+}
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+    font-weight: 600;
+}
+
+/* ── BOTONES ── */
+.btn-primary { background: var(--undac-azul); border-color: var(--undac-azul); }
+.btn-primary:hover { background: #002a5c; border-color: #002a5c; }
+
+/* ── AUTH (sin sidebar) ── */
+.card-auth { max-width: 440px; margin: 60px auto; }
+
+/* ── PERFIL ── */
+.foto-perfil {
+    width: 110px; height: 110px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 3px solid var(--undac-azul);
+}

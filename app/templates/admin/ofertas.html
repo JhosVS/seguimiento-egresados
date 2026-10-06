@@ -1,0 +1,110 @@
+<!-- app/templates/admin/ofertas.html -->
+{% extends "base.html" %}
+{% block titulo %}Bolsa de trabajo{% endblock %}
+
+{% block contenido %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="bi bi-briefcase me-2 text-primary"></i>Bolsa de Trabajo</h4>
+
+        <!-- Indicador de Sincronización API -->
+        <small class="text-muted d-block mt-1" style="font-size: 0.8rem;">
+            <i class="bi bi-cloud-check text-success me-1"></i>
+            Última actualización API:
+            <span class="fw-semibold">
+                {{ ultima_sync.strftime('%d/%m/%Y') if ultima_sync else 'Sin registros automáticos' }}
+            </span>
+        </small>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('admin.nueva_oferta') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Nueva oferta
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <!-- Navegación y Buscador -->
+    <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">
+        <ul class="nav nav-pills gap-1">
+            <li class="nav-item">
+                <a class="nav-link px-3 py-1 small {{ 'active' if estado == 'activa' else 'text-secondary' }}"
+                   href="{{ url_for('admin.ofertas', estado='activa') }}">Activas</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link px-3 py-1 small {{ 'active' if estado == 'inactiva' else 'text-secondary' }}"
+                   href="{{ url_for('admin.ofertas', estado='inactiva') }}">Inactivas</a>
+            </li>
+        </ul>
+
+        <form method="GET" action="{{ url_for('admin.ofertas') }}" class="input-group input-group-sm" style="max-width: 300px;">
+            <input type="hidden" name="estado" value="{{ estado }}">
+            <input type="text" name="buscar" class="form-control" placeholder="Buscar oferta..." value="{{ buscar or '' }}">
+            <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+        </form>
+    </div>
+
+    <!-- Lista -->
+    <div class="card-body p-0">
+        {% if ofertas %}
+            <div class="list-group list-group-flush">
+            {% for o in ofertas %}
+                <div class="list-group-item d-flex justify-content-between align-items-center p-3">
+                    <!-- Datos principales -->
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-bold">{{ o.titulo }}</span>
+                            <span class="badge bg-{{ 'info' if o.fuente == 'automatico' else 'secondary' }}-subtle text-{{ 'info' if o.fuente == 'automatico' else 'secondary' }} border" style="font-size: 0.75rem;">
+                                {{ 'API' if o.fuente == 'automatico' else 'Manual' }}
+                            </span>
+                        </div>
+                        <div class="text-muted small">
+                            {{ o.empresa_nombre }} • {{ o.ubicacion or 'Sin ubicación' }}
+                            <span class="ms-2">• Publicada: {{ o.fecha_publicacion.strftime('%d/%m/%Y') if o.fecha_publicacion else '—' }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="d-flex gap-1 align-items-center">
+                        {% if o.url_original %}
+                            <a href="{{ o.url_original }}" target="_blank" class="btn btn-sm btn-light text-secondary border" title="Ver enlace">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        {% endif %}
+                        <a href="{{ url_for('admin.editar_oferta', id=o.id_oferta) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+
+                        <form method="POST" action="{{ url_for('admin.toggle_oferta', id=o.id_oferta) }}" class="d-inline">
+                            <input type="hidden" name="estado" value="{{ estado }}">
+                            <input type="hidden" name="pagina" value="{{ pagina or 1 }}">
+                            <button type="submit" class="btn btn-sm btn-outline-{{ 'danger' if o.activa else 'success' }}">
+                                {{ 'Desactivar' if o.activa else 'Activar' }}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+
+            <!-- Paginación simplificada -->
+            {% if paginacion.pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light border-top">
+                <small class="text-muted">Total: {{ paginacion.total }}</small>
+                <ul class="pagination pagination-sm mb-0">
+                    {% for p in paginacion.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                            <li class="page-item {{ 'active' if p == paginacion.page }}">
+                                <a class="page-link" href="{{ url_for('admin.ofertas', pagina=p, buscar=buscar, estado=estado) }}">{{ p }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+        {% else %}
+            <div class="text-center text-muted py-4">No se encontraron ofertas.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

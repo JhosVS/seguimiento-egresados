@@ -1,0 +1,135 @@
+<!-- app/templates/admin/_form_oferta.html -->
+{%- set o = oferta if oferta is defined and oferta else none -%}
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-4">
+
+        <!-- 1. Información general -->
+        <h6 class="fw-bold text-primary mb-3"><i class="bi bi-card-heading me-1"></i> Información General</h6>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-8">
+                <label class="form-label small fw-semibold">Título del puesto <span class="text-danger">*</span></label>
+                <input type="text" name="titulo" class="form-control" required value="{{ o.titulo if o else '' }}" placeholder="Ej: Practicante de Contabilidad">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Tipo de oferta</label>
+                <select name="tipo_oferta" class="form-select">
+                    {% for t in ['Empleo','Práctica preprofesional','Práctica profesional','Convocatoria'] %}
+                    <option value="{{ t }}" {{ 'selected' if o and o.tipo_oferta == t }}>{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Empresa <span class="text-danger">*</span></label>
+                <input type="text" name="empresa_nombre" class="form-control" required value="{{ o.empresa_nombre if o else '' }}" placeholder="Ej: Importadora San Martín">
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Sector</label>
+                <select name="id_sector" class="form-select">
+                    <option value="">Seleccionar</option>
+                    {% for s in sectores %}
+                    <option value="{{ s.id_sector }}" {{ 'selected' if o and o.id_sector == s.id_sector }}>{{ s.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <hr class="text-muted opacity-25">
+
+        <!-- 2. Condiciones laborales -->
+        <h6 class="fw-bold text-primary mb-3"><i class="bi bi-sliders me-1"></i> Condiciones y Modalidad</h6>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3 col-6">
+                <label class="form-label small fw-semibold">Modalidad</label>
+                <select name="modalidad" class="form-select">
+                    <option value="">Seleccionar</option>
+                    {% for mod in ['Presencial','Remoto','Híbrido'] %}
+                    <option value="{{ mod }}" {{ 'selected' if o and o.modalidad == mod }}>{{ mod }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3 col-6">
+                <label class="form-label small fw-semibold">Jornada</label>
+                <select name="jornada" class="form-select">
+                    <option value="">Seleccionar</option>
+                    {% for j in ['Tiempo completo','Tiempo parcial','Por horas'] %}
+                    <option value="{{ j }}" {{ 'selected' if o and o.jornada == j }}>{{ j }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3 col-6">
+                <label class="form-label small fw-semibold">Remuneración</label>
+                <input type="text" name="remuneracion" class="form-control" value="{{ o.remuneracion if o and o.remuneracion else '' }}" placeholder="Ej: S/ 1,200">
+            </div>
+
+            <div class="col-md-3 col-6">
+                <label class="form-label small fw-semibold">Teléfono contacto</label>
+                <input type="text" name="contacto_telefono" class="form-control" maxlength="20" value="{{ o.contacto_telefono if o and o.contacto_telefono else '' }}" placeholder="Ej: 987654321">
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Ubicación / Ciudad</label>
+                <input type="text" name="ubicacion" class="form-control" value="{{ o.ubicacion if o and o.ubicacion else '' }}" placeholder="Ej: Cerro de Pasco, Perú">
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Fecha de vencimiento <span class="text-danger">*</span></label>
+                <input type="date" name="fecha_vencimiento" class="form-control" required value="{{ o.fecha_vencimiento.strftime('%Y-%m-%d') if o and o.fecha_vencimiento else '' }}">
+            </div>
+        </div>
+
+        <hr class="text-muted opacity-25">
+
+        <!-- 3. Imagen y detalles -->
+        <h6 class="fw-bold text-primary mb-3"><i class="bi bi-file-earmark-text me-1"></i> Detalles o Afiche</h6>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Imagen / Afiche publicitario</label>
+                {% if o and o.ruta_imagen %}
+                <div class="mb-2">
+                    <img src="{{ url_for('static', filename=o.ruta_imagen) }}" alt="Imagen oferta" class="rounded border" style="height: 60px; object-fit: contain;">
+                </div>
+                {% endif %}
+                <input type="file" name="imagen" class="form-control form-control-sm" accept=".png,.jpg,.jpeg,.webp">
+                <span class="form-text text-muted" style="font-size: 0.75rem;">Si subes un afiche completo, puedes dejar la descripción opcional.</span>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">URL de postulación / Web externa</label>
+                <input type="url" name="url_original" class="form-control" value="{{ o.url_original if o and o.url_original else '' }}" placeholder="https://ejemplo.com/convocatoria">
+            </div>
+
+            <div class="col-12">
+                <label class="form-label small fw-semibold">Descripción general</label>
+                <textarea name="descripcion" class="form-control" rows="2" placeholder="Resumen o síntesis de la vacante">{{ o.descripcion if o and o.descripcion else '' }}</textarea>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Funciones</label>
+                <textarea name="funciones" class="form-control" rows="3" placeholder="• Tarea 1&#10;• Tarea 2">{{ o.funciones if o and o.funciones else '' }}</textarea>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Requisitos</label>
+                <textarea name="requisitos" class="form-control" rows="3" placeholder="• Requisito 1&#10;• Requisito 2">{{ o.requisitos if o and o.requisitos else '' }}</textarea>
+            </div>
+        </div>
+
+        <!-- Estado (solo al editar) -->
+        {% if o %}
+        <div class="form-check form-switch bg-light p-2 rounded ps-5">
+            <input type="checkbox" name="activa" id="activa" class="form-check-input" {{ 'checked' if o.activa }}>
+            <label class="form-check-label fw-semibold small" for="activa">Publicación Activa</label>
+        </div>
+        {% endif %}
+
+    </div>
+</div>

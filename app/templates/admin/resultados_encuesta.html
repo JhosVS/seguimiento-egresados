@@ -1,0 +1,249 @@
+<!-- app/templates/admin/resultados_encuesta.html -->
+{% extends "base.html" %}
+{% block titulo %}Resultados — {{ encuesta.nombre }}{% endblock %}
+
+{% block contenido %}
+{% macro sin_respuestas() %}
+    <div class="text-muted small text-center py-4">
+        <i class="bi bi-inbox fs-4 d-block mb-1 opacity-50"></i>
+        Sin respuestas registradas para esta pregunta.
+    </div>
+{% endmacro %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <a href="{{ url_for('admin.detalle_encuesta', id=encuesta.id_encuesta) }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h4 class="mb-0 fw-bold">Resultados: {{ encuesta.nombre }}</h4>
+            <div class="text-muted small">
+                Año {{ encuesta.anio }} ·
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                    {{ total_respondientes }} egresado(s) respondieron
+                </span>
+            </div>
+        </div>
+    </div>
+
+    {% if total_respondientes > 0 %}
+    <a href="{{ url_for('admin.exportar_encuesta', id=encuesta.id_encuesta, id_facultad=id_facultad, id_programa=id_programa) }}"
+       class="btn btn-success btn-sm d-flex align-items-center gap-1">
+        <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
+    </a>
+    {% endif %}
+</div>
+
+<!-- Filtros -->
+{% if rol_activo == 'docente_responsable' %}
+<div class="alert alert-info border-0 shadow-sm small mb-4 d-flex align-items-center gap-2">
+    <i class="bi bi-info-circle-fill fs-6"></i>
+    <span>Mostrando los resultados de tu programa asignado.</span>
+</div>
+{% else %}
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body py-3">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-sm-4">
+                <label class="form-label small fw-medium mb-1">Facultad</label>
+                {% if rol_activo == 'coordinador' %}
+                    <div class="form-control form-control-sm bg-light">{{ facultades[0].nombre if facultades else '—' }}</div>
+                {% else %}
+                    <select name="id_facultad" id="select-facultad" class="form-select form-select-sm">
+                        <option value="">Todas las facultades</option>
+                        {% for f in facultades %}
+                        <option value="{{ f.id_facultad }}" {{ 'selected' if f.id_facultad == id_facultad }}>{{ f.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small fw-medium mb-1">Programa de estudio</label>
+                <select name="id_programa" id="select-programa" class="form-select form-select-sm">
+                    <option value="">Todos los programas</option>
+                    {% for p in programas %}
+                    <option value="{{ p.id_programa }}" {{ 'selected' if p.id_programa == id_programa }}>{{ p.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-sm-4 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+                {% if (rol_activo == 'administrador' and id_facultad) or id_programa %}
+                <a href="{{ url_for('admin.resultados_encuesta', id=encuesta.id_encuesta) }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if total_respondientes == 0 %}
+    <div class="text-center text-muted py-5 my-4">
+        <i class="bi bi-bar-chart fs-1 text-secondary opacity-50"></i>
+        <h5 class="mt-3 fw-normal">Sin datos disponibles</h5>
+        <p class="small">
+            {% if id_facultad or id_programa %}
+            No hay respuestas con este filtro. Prueba otra combinación.
+            {% else %}
+            Aún no hay respuestas registradas para esta encuesta.
+            {% endif %}
+        </p>
+    </div>
+{% else %}
+    <div class="row g-4">
+        {% for r in resultados %}
+        <div class="col-lg-6">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-white border-bottom fw-semibold small py-3 d-flex justify-content-between align-items-start gap-2">
+                    <span>{{ loop.index }}. {{ r.pregunta.texto }}</span>
+                    <span class="badge bg-light text-dark border fw-normal flex-shrink-0">{{ r.tipo.replace('_', ' ')|capitalize }}</span>
+                </div>
+                <div class="card-body">
+
+                    {% if r.tipo in ('opcion_unica', 'opcion_multiple', 'si_no') %}
+                        {% if r.data and r.data|sum > 0 %}
+                            <div style="position: relative; height: 260px;">
+                                <canvas class="chart-canvas"
+                                        id="chart-{{ r.pregunta.id_pregunta }}"
+                                        data-tipo="{{ r.tipo }}"
+                                        data-labels='{{ r.labels|tojson }}'
+                                        data-values='{{ r.data|tojson }}'>
+                                </canvas>
+                            </div>
+                        {% else %}
+                            {{ sin_respuestas() }}
+                        {% endif %}
+
+                    {% elif r.tipo == 'numero' %}
+                        {% if r.valores %}
+                            <div class="row text-center g-2 my-2">
+                                <div class="col-4">
+                                    <div class="p-2 border rounded bg-light">
+                                        <div class="text-muted small text-uppercase">Promedio</div>
+                                        <div class="fs-4 fw-bold text-primary">{{ r.promedio }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 border rounded bg-light">
+                                        <div class="text-muted small text-uppercase">Mínimo</div>
+                                        <div class="fs-4 fw-bold text-secondary">{{ r.minimo }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 border rounded bg-light">
+                                        <div class="text-muted small text-uppercase">Máximo</div>
+                                        <div class="fs-4 fw-bold text-secondary">{{ r.maximo }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-muted small text-center mt-2">
+                                Basado en {{ r.valores|length }} respuesta(s)
+                            </div>
+                        {% else %}
+                            {{ sin_respuestas() }}
+                        {% endif %}
+
+                    {% elif r.tipo == 'texto' %}
+                        {% if r.respuestas_texto %}
+                            <div class="text-muted small mb-2">{{ r.respuestas_texto|length }} respuesta(s)</div>
+                            <ul class="list-group list-group-flush border rounded" style="max-height: 220px; overflow-y: auto;">
+                                {% for t in r.respuestas_texto %}
+                                    <li class="list-group-item small py-2">
+                                        <i class="bi bi-chat-left-text me-2 text-muted"></i>{{ t }}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            {{ sin_respuestas() }}
+                        {% endif %}
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    Chart.register(ChartDataLabels);
+
+    const paleta = ['#003876', '#0d6efd', '#20c997', '#ffc107', '#dc3545', '#6f42c1', '#fd7e14', '#198754'];
+
+    document.querySelectorAll('.chart-canvas').forEach(canvas => {
+        const tipo = canvas.dataset.tipo;
+        const labels = JSON.parse(canvas.dataset.labels);
+        const data = JSON.parse(canvas.dataset.values);
+        const total = data.reduce((a, v) => a + v, 0);
+
+        let tipoGrafico = 'bar';
+        const opciones = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'center', align: 'center', color: '#ffffff',
+                    font: { weight: 'bold', size: 11 },
+                    formatter: v => (v === 0 || total === 0) ? '' : ((v / total) * 100).toFixed(1) + '%'
+                }
+            }
+        };
+
+        function barrasHorizontales() {
+            tipoGrafico = 'bar';
+            opciones.indexAxis = 'y';
+            opciones.scales = { x: { beginAtZero: true, ticks: { precision: 0 } } };
+            opciones.plugins.datalabels.anchor = 'end';
+            opciones.plugins.datalabels.align = 'end';
+            opciones.plugins.datalabels.color = '#333333';
+        }
+
+        if (tipo === 'si_no') {
+            tipoGrafico = 'doughnut';
+            opciones.plugins.legend = { display: true, position: 'bottom' };
+        } else if (tipo === 'opcion_multiple') {
+            barrasHorizontales();
+        } else if (tipo === 'opcion_unica') {
+            if (labels.length <= 4) {
+                tipoGrafico = 'pie';
+                opciones.plugins.legend = { display: true, position: 'right' };
+            } else {
+                barrasHorizontales();
+            }
+        }
+
+        new Chart(canvas, {
+            type: tipoGrafico,
+            data: { labels: labels, datasets: [{ data: data, backgroundColor: paleta }] },
+            options: opciones
+        });
+    });
+
+    // Filtro dinámico facultad → programa (solo administrador)
+    const selectFacultad = document.getElementById('select-facultad');
+    if (selectFacultad) {
+        selectFacultad.addEventListener('change', function () {
+            const selectPrograma = document.getElementById('select-programa');
+            selectPrograma.innerHTML = '<option value="">Todos los programas</option>';
+            if (!this.value) return;
+
+            fetch(`{{ url_for('admin.programas_de_facultad', id=encuesta.id_encuesta) }}?id_facultad=${this.value}`)
+                .then(r => r.json())
+                .then(programas => programas.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.nombre;
+                    selectPrograma.appendChild(opt);
+                }))
+                .catch(err => console.error('Error al cargar programas:', err));
+        });
+    }
+});
+</script>
+{% endblock %}

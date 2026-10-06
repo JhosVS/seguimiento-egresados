@@ -1,0 +1,133 @@
+<!-- app/templates/public/quienes_somos.html -->
+{% extends 'base_public.html' %}
+
+{% block title %}Quiénes Somos - Egresados UNDAC{% endblock %}
+
+{% block content %}
+<section class="py-5">
+    <div class="container">
+        <!-- Encabezado -->
+        <div class="text-center mb-5">
+            <h1 class="fw-bold display-5 mb-3" style="color: #003876;">Quiénes Somos</h1>
+            <p class="lead text-muted" style="max-width: 700px; margin: 0 auto;">
+                Conoce la identidad institucional de la Escuela de Ingeniería de Sistemas y Computación de la UNDAC.
+            </p>
+            <div class="mt-3">
+                <span class="badge bg-primary bg-opacity-10 text-primary fw-semibold px-3 py-2">
+                    <i class="bi bi-mortarboard-fill me-1"></i> Compromiso con la excelencia académica
+                </span>
+            </div>
+        </div>
+
+        <!-- Misión y Visión en Cards -->
+        <div class="row g-4 mb-5">
+            <!-- Misión -->
+            <div class="col-md-6">
+                <div class="card h-100 border-0 shadow-sm" style="border-top: 5px solid #003876 !important; border-radius: 12px;">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="bg-primary bg-opacity-10 rounded-3 p-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                                <i class="bi bi-bullseye fs-2" style="color: #003876;"></i>
+                            </div>
+                            <h2 class="h3 fw-bold mb-0" style="color: #003876;">Misión</h2>
+                        </div>
+                        <p class="text-muted" style="font-size: 1.05rem; line-height: 1.8;">
+                            Formar profesionales competitivos, audaces, innovadores, con capacidad científica, tecnológica, humanística y multilingüe, integrando universidad – empresa – sociedad, con valores éticos para el mejoramiento de la calidad de vida en la región, el país y el mundo.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visión -->
+            <div class="col-md-6">
+                <div class="card h-100 border-0 shadow-sm" style="border-top: 5px solid #C8102E !important; border-radius: 12px;">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="bg-danger bg-opacity-10 rounded-3 p-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                                <i class="bi bi-eye fs-2" style="color: #C8102E;"></i>
+                            </div>
+                            <h2 class="h3 fw-bold mb-0" style="color: #C8102E;">Visión</h2>
+                        </div>
+                        <p class="text-muted" style="font-size: 1.05rem; line-height: 1.8;">
+                            Ser líder en la formación profesional, con alto nivel de responsabilidad social, que permita el desarrollo sostenible y el mejoramiento de la calidad de vida en la región Pasco, el país y el mundo.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Valores - Diseño mejorado -->
+        <div class="mt-5">
+            <div class="text-center mb-4">
+                <h2 class="fw-bold" style="color: #003876;">Nuestros Valores</h2>
+                <p class="text-muted">Principios que guían nuestra formación profesional y compromiso social</p>
+            </div>
+            
+            <div class="row g-4">
+                <!-- Valor 1: Ética Profesional -->
+                <div class="col-md-3 col-sm-6">
+                    <div class="card h-100 border-0 shadow-sm text-center p-4" style="border-radius: 12px; transition: transform 0.2s;">
+                        <div class="mb-3">
+                            <div class="bg-primary bg-opacity-10 rounded-circle p-3 d-inline-block" style="width: 70px; height: 70px; line-height: 70px;">
+                                <i class="bi bi-shield-check fs-1" style="color: #003876;"></i>
+                            </div>
+                        </div>
+                        <h5 class="fw-bold" style="color: #003876;">Ética Profesional</h5>
+                        <p class="text-muted small">Actuamos con integridad y responsabilidad en cada decisión y acción profesional.</p>
+                    </div>
+                </div>
+
+                <!-- Valor 2: Voluntad de Servicio -->
+                <div class="col-md-3 col-sm-6">
+                    <div class="card h-100 border-0 shadow-sm text-center p-4" style="border-radius: 12px; transition: transform 0.2s;">
+                        <div class="mb-3">
+                            <div class="bg-info bg-opacity-10 rounded-circle p-3 d-inline-block" style="width: 70px; height: 70px; line-height: 70px;">
+                                <i class="bi bi-arrow-repeat fs-1" style="color: #0e7490;"></i>
+                            </div>
+                        </div>
+                        <h5 class="fw-bold" style="color: #15803d;">Voluntad de Servicio</h5>
+                        <p class="text-muted small">Compromiso genuino con la comunidad, poniendo nuestras habilidades al servicio del bien común.</p>
+                    </div>
+                </div>
+
+                <!-- Valor 3: Honestidad -->
+                <div class="col-md-3 col-sm-6">
+                    <div class="card h-100 border-0 shadow-sm text-center p-4" style="border-radius: 12px; transition: transform 0.2s;">
+                        <div class="mb-3">
+                            <div class="bg-warning bg-opacity-10 rounded-circle p-3 d-inline-block" style="width: 70px; height: 70px; line-height: 70px;">
+                                <i class="bi bi-hand-thumbs-up fs-1" style="color: #c2410c;"></i>
+                            </div>
+                        </div>
+                        <h5 class="fw-bold" style="color: #c2410c;">Honestidad</h5>
+                        <p class="text-muted small">Actuamos con transparencia, verdad y rectitud en todas nuestras relaciones.</p>
+                    </div>
+                </div>
+
+                <!-- Valor 4: Coherencia -->
+                <div class="col-md-3 col-sm-6">
+                    <div class="card h-100 border-0 shadow-sm text-center p-4" style="border-radius: 12px; transition: transform 0.2s;">
+                        <div class="mb-3">
+                            <div class="bg-info bg-opacity-10 rounded-circle p-3 d-inline-block" style="width: 70px; height: 70px; line-height: 70px;">
+                                <i class="bi bi-arrow-repeat fs-1" style="color: #0e7490;"></i>
+                            </div>
+                        </div>
+                        <h5 class="fw-bold" style="color: #0e7490;">Coherencia</h5>
+                        <p class="text-muted small">Vivimos y actuamos en concordancia con nuestros principios y valores.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Frase inspiradora -->
+            <div class="mt-5 text-center">
+                <div class="bg-light rounded-4 p-4" style="border-left: 5px solid #003876;">
+                    <p class="mb-0 fst-italic" style="font-size: 1.1rem; color: #475569;">
+                        <i class="bi bi-quote fs-4 me-2" style="color: #003876;"></i>
+                        Formamos profesionales con valores, competentes para transformar la sociedad.
+                        <i class="bi bi-quote fs-4 ms-2" style="color: #003876;"></i>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

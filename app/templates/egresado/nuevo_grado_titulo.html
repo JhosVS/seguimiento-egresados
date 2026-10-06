@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block titulo %}Agregar Grado o Título{% endblock %}
+
+{% block contenido %}
+<div class="container py-3" style="max-width: 750px;">
+
+    <!-- Encabezado con botón pequeño para volver -->
+    <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom">
+        <h4 class="mb-0 fw-bold"><i class="bi bi-mortarboard me-2 text-primary"></i>Agregar Grado o Título</h4>
+        <a href="{{ url_for('egresado.formacion_profesional') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Ver formación profesional
+        </a>
+    </div>
+
+    <!-- Alerta informativa de SUNEDU -->
+    <div class="alert alert-info py-2 small mb-4">
+        <i class="bi bi-info-circle me-1"></i>
+        Consulta tu constancia de grado o título en el portal oficial de SUNEDU y copia los datos aquí.
+        <div class="mt-2">
+            <a href="https://enlinea.sunedu.gob.pe/" target="_blank" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Consultar en SUNEDU en Línea
+            </a>
+        </div>
+    </div>
+
+    <!-- Formulario -->
+    <form method="POST" action="{{ url_for('egresado.nuevo_grado_titulo') }}" class="card shadow-sm p-4">
+        
+        <div class="row g-3">
+            <div class="col-sm-6">
+                <label class="form-label small fw-semibold">Graduado</label>
+                <input type="text" class="form-control" value="{{ e.nombre_completo }}" disabled>
+                <div class="form-text">Tomado de tu perfil.</div>
+            </div>
+
+            <div class="col-sm-6">
+                <label class="form-label small fw-semibold">DNI / Documento</label>
+                <input type="text" class="form-control" value="{{ e.dni }}" disabled>
+            </div>
+
+            <div class="col-sm-4">
+                <label class="form-label small fw-semibold">Tipo <span class="text-danger">*</span></label>
+                <select name="tipo" id="tipo" class="form-select" required>
+                    <option value="">-- Seleccione --</option>
+                    <option value="bachiller">Bachiller</option>
+                    <option value="titulado">Título Profesional</option>
+                    <option value="maestria">Maestría</option>
+                    <option value="doctorado">Doctorado</option>
+                    <option value="phd">PhD</option>
+                </select>
+            </div>
+
+            <div class="col-sm-8">
+                <label class="form-label small fw-semibold">Grado o Título <span class="text-danger">*</span></label>
+                <input type="text" name="grado_titulo" id="grado_titulo" class="form-control" required placeholder='Ej: BACHILLER EN DERECHO / INGENIERO DE SISTEMAS...'>
+            </div>
+
+            <div class="col-sm-6">
+                <label class="form-label small fw-semibold">Fecha del Diploma <span class="text-danger">*</span></label>
+                <input type="date" name="fecha_obtencion" class="form-control" required>
+            </div>
+
+            <div class="col-sm-6">
+                <label class="form-label small fw-semibold">Institución <span class="text-danger">*</span></label>
+                <input type="text" name="institucion" class="form-control" required value="Universidad Nacional Daniel Alcides Carrión">
+            </div>
+        </div>
+
+        <!-- Un solo botón de acción continuo -->
+        <div class="d-flex justify-content-end mt-4 pt-3 border-top">
+            <button type="submit" class="btn btn-primary px-4">
+                <i class="bi bi-plus-circle me-1"></i>Guardar y registrar otro
+            </button>
+        </div>
+
+    </form>
+</div>
+
+<script>
+const nombrePrograma = {{ nombre_programa|tojson }};
+
+const sugerencias = {
+    bachiller:  nombrePrograma ? `BACHILLER EN ${nombrePrograma.toUpperCase()}` : 'BACHILLER EN ',
+    titulado:   '',
+    maestria:   '',
+    doctorado:  '',
+    phd:        ''
+};
+
+document.getElementById('tipo').addEventListener('change', function () {
+    const campo = document.getElementById('grado_titulo');
+    if (!campo.value.trim()) {
+        campo.value = sugerencias[this.value] || '';
+    }
+});
+</script>
+{% endblock %}

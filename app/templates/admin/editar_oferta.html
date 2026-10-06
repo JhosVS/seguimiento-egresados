@@ -1,0 +1,22 @@
+<!-- app/templates/admin/editar_oferta.html -->
+{% extends "base.html" %}
+{% block titulo %}Editar oferta{% endblock %}
+
+{% block contenido %}
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{{ url_for('admin.ofertas') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <h4 class="mb-0">Editar oferta laboral</h4>
+</div>
+
+<form method="POST" enctype="multipart/form-data">
+    {% include 'admin/_form_oferta.html' %}
+    <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Guardar cambios
+        </button>
+        <a href="{{ url_for('admin.ofertas') }}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

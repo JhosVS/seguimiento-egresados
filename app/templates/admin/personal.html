@@ -1,0 +1,96 @@
+<!-- app/templates/admin/personal.html -->
+{% extends "base.html" %}
+{% block titulo %}Personal del sistema{% endblock %}
+{% block contenido %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-person-badge me-2"></i>Personal del sistema</h4>
+    <a href="{{ url_for('admin.nuevo_personal') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nueva cuenta
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        {% if lista %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Correo</th>
+                        <th>Rol</th>
+                        <th>Ámbito</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for persona, usuario in lista %}
+                <tr>
+                    <td>
+                        <div class="fw-semibold small">{{ persona.apellido_paterno }} {{ persona.apellido_materno or '' }}</div>
+                        <div class="text-muted" style="font-size:.78rem;">{{ persona.nombres }}</div>
+                    </td>
+                    <td class="small">{{ usuario.correo }}</td>
+                    <td>
+                        <span class="badge
+                            {% if persona.rol.nombre in ['administrador','utsag'] %}bg-danger
+                            {% elif persona.rol.nombre == 'coordinador' %}bg-primary
+                            {% else %}bg-secondary{% endif %}">
+                            {{ persona.rol.nombre|replace('_', ' ')|capitalize }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if persona.facultad %}
+                            <span class="badge bg-light text-dark border">{{ persona.facultad.nombre }}</span>
+                        {% elif persona.programa %}
+                            <span class="badge bg-light text-dark border">{{ persona.programa.nombre }}</span>
+                        {% else %}
+                            <span class="text-muted small">Global</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if usuario.estado == 'activo' %}<span class="badge bg-success">Activo</span>
+                        {% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1 justify-content-end">
+                            <a href="{{ url_for('admin.editar_personal', id=persona.id_personal) }}"
+                               class="btn btn-sm btn-outline-secondary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            {% if persona.id_personal == current_user.id_personal %}
+                                <span class="badge bg-light text-muted border align-self-center px-2"><i class="bi bi-person-check"></i> Tú</span>
+                            {% elif persona.id_personal == 1 %}
+                                <span class="badge bg-light text-muted border align-self-center px-2"><i class="bi bi-shield-lock"></i> Protegida</span>
+                            {% else %}
+                                <form method="POST" action="{{ url_for('admin.toggle_personal', id=persona.id_personal) }}">
+                                    <button type="submit"
+                                            class="btn btn-sm {{ 'btn-outline-warning' if usuario.estado == 'activo' else 'btn-outline-success' }}"
+                                            title="{{ 'Desactivar' if usuario.estado == 'activo' else 'Activar' }}">
+                                        <i class="bi bi-{{ 'pause' if usuario.estado == 'activo' else 'play' }}"></i>
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-person-badge fs-1"></i>
+            <p class="mt-2">
+                {% if rol_activo == 'coordinador' %}No tienes docentes responsables a tu cargo todavía.
+                {% else %}No hay personal registrado aún.{% endif %}
+            </p>
+            <a href="{{ url_for('admin.nuevo_personal') }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>Crear cuenta
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

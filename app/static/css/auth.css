@@ -1,0 +1,76 @@
+/* static/css/auth.css */
+body {
+    min-height: 100vh;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: linear-gradient(rgba(0, 20, 50, 0.72), rgba(0, 20, 50, 0.72)),
+                url('../img/hero_bg2.jpg') center/cover no-repeat fixed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+
+/* Tarjeta principal */
+.auth-card {
+    background: #ffffff;
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+    overflow: hidden;
+}
+
+/* Encabezado azul */
+.auth-header {
+    background: #003876;
+    color: #ffffff;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+/* Entradas y foco */
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    padding: 0.6rem 0.85rem;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #003876;
+    box-shadow: 0 0 0 3px rgba(0, 56, 118, 0.15);
+}
+
+/* Botón principal */
+.btn-auth {
+    background-color: #003876;
+    border: none;
+    color: #ffffff;
+    font-weight: 600;
+    padding: 0.65rem;
+    border-radius: 8px;
+    width: 100%;
+}
+
+.btn-auth:hover {
+    background-color: #002652;
+    color: #ffffff;
+}
+
+/* Botón flotante para regresar */
+.btn-volver-fixed {
+    position: fixed;
+    top: 1.25rem;
+    left: 1.25rem;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    padding: 0.4rem 0.9rem;
+    border-radius: 8px;
+    text-decoration: none;
+    backdrop-filter: blur(6px);
+}
+
+.btn-volver-fixed:hover {
+    background: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+}

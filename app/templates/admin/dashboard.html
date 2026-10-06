@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block titulo %}Panel de administración{% endblock %}
+
+{% block contenido %}
+
+{# Tarjeta de indicador #}
+{% macro kpi(titulo, valor, detalle, icono, color) %}
+<div class="col-sm-6 col-xl-3">
+    <div class="card border shadow-sm rounded-4 h-100">
+        <div class="card-body p-4 d-flex align-items-center gap-3">
+            <span class="bg-{{ color }}-subtle text-{{ color }}-emphasis rounded-3 p-3 fs-4 lh-1">
+                <i class="bi bi-{{ icono }}"></i>
+            </span>
+            <div>
+                <div class="text-muted small">{{ titulo }}</div>
+                <div class="fs-3 fw-bold lh-1 my-1">{{ valor }}</div>
+                <div class="text-muted small">{{ detalle }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{# Lista de barras de progreso #}
+{% macro barras(items, base, colores) %}
+    {% for nombre, n in items %}
+    {% set pct = (n / base * 100) if base else 0 %}
+    <div class="mb-3">
+        <div class="d-flex justify-content-between mb-1">
+            <span>{{ nombre }}</span>
+            <span class="text-muted">{{ n }} ({{ pct | round(1) }}%)</span>
+        </div>
+        <div class="progress" style="height: 10px;">
+            <div class="progress-bar bg-{{ colores[loop.index0 % colores | length] }}" style="width: {{ pct }}%;"></div>
+        </div>
+    </div>
+    {% else %}
+    <p class="text-muted mb-0">Sin datos todavía.</p>
+    {% endfor %}
+{% endmacro %}
+
+<!-- Encabezado -->
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h4 class="fw-bold mb-1">Panel de administración</h4>
+        <span class="text-muted">Hola, {{ current_user.personal.nombres }}. Este es el estado del seguimiento de egresados.</span>
+    </div>
+    <a href="{{ url_for('admin.informe_pdf', id_facultad=id_facultad, id_programa=id_programa) }}"
+       class="btn btn-outline-secondary">
+        <i class="bi bi-file-pdf me-1"></i>Descargar informe
+    </a>
+</div>
+
+{% if facultades %}
+<form method="GET" class="card border shadow-sm rounded-4 mb-4">
+    <div class="card-body p-3 row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label mb-1">Facultad</label>
+            <select name="id_facultad" class="form-select">
+                <option value="">Todas</option>
+                {% for f in facultades %}
+                <option value="{{ f.id_facultad }}" {{ 'selected' if f.id_facultad == id_facultad }}>{{ f.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label mb-1">Programa de estudio</label>
+            <select name="id_programa" class="form-select">
+                <option value="">Todos</option>
+                {% for p in programas %}
+                <option value="{{ p.id_programa }}" {{ 'selected' if p.id_programa == id_programa }}>{{ p.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+            {% if id_facultad or id_programa %}<a href="{{ url_for('admin.dashboard') }}" class="btn btn-link">Quitar filtro</a>{% endif %}
+        </div>
+    </div>
+</form>
+{% endif %}
+
+<!-- Indicadores -->
+<div class="row g-4 mb-4">
+    {{ kpi('Egresados en la base', total, 'registrados en la base de datos', 'people', 'primary') }}
+    {{ kpi('Con cuenta en el sistema', pct_cuenta ~ '%', con_cuenta ~ ' de ' ~ total ~ ' egresados', 'person-check', 'info') }}
+    {{ kpi('Con empleo actual', pct_empleo ~ '%', con_empleo ~ ' de ' ~ con_cuenta ~ ' con cuenta', 'briefcase', 'success') }}
+    {{ kpi('Titulados', pct_titulados ~ '%', titulados ~ ' de ' ~ total ~ ' egresados', 'mortarboard', 'warning') }}
+</div>
+
+<!-- Situación laboral y nivel académico -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card border shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-4">Situación laboral</h6>
+                {{ barras(situacion, con_cuenta, ['success', 'warning', 'secondary']) }}
+                <p class="text-muted small mb-0 mt-4">Sobre los egresados con cuenta. "Sin empleo registrado" no significa que estén desempleados.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-4">Máximo nivel académico</h6>
+                {{ barras(niveles, total, ['danger', 'primary', 'info', 'warning', 'secondary']) }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sector y currículas -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <div class="card border shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-4">Sector de los empleos actuales</h6>
+                {% if sector_data %}
+                <div style="height: 280px;"><canvas id="chartSectores"></canvas></div>
+                {% else %}
+                <p class="text-muted mb-0">Aún no hay empleos actuales registrados.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card border shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-3">Por currícula</h6>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr class="text-muted small">
+                                <th class="fw-normal">Currícula</th>
+                                <th class="fw-normal text-end">Egresados</th>
+                                <th class="fw-normal text-end">Con cuenta</th>
+                                <th class="fw-normal text-end">Con empleo</th>
+                                <th class="fw-normal text-end">Titulados</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for nombre, egresados, cuenta, empleo, titulados_c in curriculas %}
+                            <tr>
+                                <td class="fw-semibold">{{ nombre }}</td>
+                                <td class="text-end">{{ egresados }}</td>
+                                <td class="text-end">{{ cuenta }}</td>
+                                <td class="text-end">{{ empleo }}</td>
+                                <td class="text-end">{{ titulados_c }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-muted">Sin egresados registrados.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Para actuar -->
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card border shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-3"><i class="bi bi-person-exclamation text-danger me-2"></i>Registrados sin empleo cargado</h6>
+                <ul class="list-group list-group-flush">
+                    {% for e in sin_empleo %}
+                    <li class="list-group-item px-0">
+                        <div>{{ e.nombre_completo }}</div>
+                        <div class="text-muted small">{{ e.usuario.correo }}</div>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item px-0 text-muted">Todos los egresados con cuenta tienen empleos cargados.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-3"><i class="bi bi-clock-history text-warning me-2"></i>Ofertas que vencen en 15 días</h6>
+                <ul class="list-group list-group-flush">
+                    {% for o in por_vencer %}
+                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div>{{ o.titulo }}</div>
+                            <div class="text-muted small">{{ o.empresa_nombre }}</div>
+                        </div>
+                        <span class="badge text-bg-warning">{{ o.fecha_vencimiento.strftime('%d/%m/%Y') }}</span>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item px-0 text-muted">No hay ofertas por vencer.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+const sectorCanvas = document.getElementById('chartSectores');
+if (sectorCanvas) {
+    new Chart(sectorCanvas, {
+        type: 'bar',
+        data: {
+            labels: {{ sector_labels | tojson }},
+            datasets: [{
+                data: {{ sector_data | tojson }},
+                backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14', '#dc3545'],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } }
+        }
+    });
+}
+</script>
+{% endblock %}

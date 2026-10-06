@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block titulo %}Encuestas{% endblock %}
+{% block contenido %}
+<h4 class="mb-4"><i class="bi bi-clipboard-check me-2"></i>Encuestas de seguimiento</h4>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if disponibles or respondidas or pasadas %}
+        <div class="list-group list-group-flush">
+            
+            {# ================= 1. DISPONIBLES ================= #}
+            {% if disponibles %}
+            <div class="bg-light px-3 py-2 border-bottom fw-bold text-primary small text-uppercase">
+                <i class="bi bi-card-checklist me-1"></i> Encuestas disponibles
+            </div>
+            {% for enc in disponibles %}
+            <a href="{{ url_for('egresado.responder_encuesta', id=enc.id_encuesta) }}"
+               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3">
+                <div>
+                    <div class="fw-semibold text-dark">{{ enc.nombre }}</div>
+                    {% if enc.descripcion %}
+                    <div class="text-muted small">{{ enc.descripcion }}</div>
+                    {% endif %}
+                </div>
+                <span class="badge bg-primary">Responder</span>
+            </a>
+            {% endfor %}
+            {% endif %}
+
+            {# ================= 2. YA RESPONDIDAS (AÚN ABIERTAS) ================= #}
+            {% if respondidas %}
+            <div class="bg-light px-3 py-2 border-top border-bottom fw-bold text-success small text-uppercase">
+                <i class="bi bi-check-circle me-1"></i> Respuestas enviadas
+            </div>
+            {% for enc in respondidas %}
+            <div class="list-group-item d-flex justify-content-between align-items-center py-3 bg-white text-muted">
+                <div>
+                    <div class="fw-semibold text-secondary">
+                        <i class="bi bi-check-lg text-success me-1"></i> {{ enc.nombre }}
+                    </div>
+                    {% if enc.descripcion %}
+                    <div class="text-muted small">{{ enc.descripcion }}</div>
+                    {% endif %}
+                </div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Completada</span>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {# ================= 3. ENCUESTAS PASADAS (ESTADO CERRADA) ================= #}
+            {% if pasadas %}
+            <div class="bg-light px-3 py-2 border-top border-bottom fw-bold text-muted small text-uppercase">
+                <i class="bi bi-clock-history me-1"></i> Encuestas pasadas
+            </div>
+            {% for enc in pasadas %}
+            <div class="list-group-item d-flex justify-content-between align-items-center py-3 bg-white text-muted opacity-75">
+                <div>
+                    <div class="fw-semibold text-secondary">
+                        {% if enc.id_encuesta in respondidas_ids %}
+                            <i class="bi bi-check-circle-fill text-muted me-1"></i> {{ enc.nombre }}
+                        {% else %}
+                            <i class="bi bi-x-circle me-1"></i> {{ enc.nombre }}
+                        {% endif %}
+                    </div>
+                    {% if enc.descripcion %}
+                    <div class="text-muted small">{{ enc.descripcion }}</div>
+                    {% endif %}
+                </div>
+                
+                {# Badge según el historial del alumno #}
+                {% if enc.id_encuesta in respondidas_ids %}
+                    <span class="badge bg-secondary-subtle text-secondary border">Cerrada (Respondida)</span>
+                {% else %}
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Plazo vencido</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
+
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-inbox fs-1 text-muted"></i>
+            <p class="mt-2 mb-0">No hay encuestas para mostrar en este momento.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

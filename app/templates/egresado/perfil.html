@@ -1,0 +1,273 @@
+<!-- app/templates/egresado/perfil.html -->
+{% extends "base.html" %}
+{% block titulo %}Mi perfil{% endblock %}
+
+{% block contenido %}
+<!-- Encabezado con título y acciones -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-person me-2"></i>Mi perfil</h4>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('egresado.editar_perfil') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>Editar perfil
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+
+    <!-- FILA 1 COL 1: Foto + nivel + grados -->
+    <div class="col-md-4">
+        <div class="card p-4 text-center h-100">
+            {% if e.foto %}
+            <img src="{{ url_for('static', filename=e.foto) }}" class="foto-perfil mx-auto mb-3" style="width:110px;height:110px;object-fit:cover;border-radius:50%;">
+            {% else %}
+            <div class="mx-auto mb-3 d-flex align-items-center justify-content-center bg-secondary rounded-circle"
+                 style="width:110px;height:110px;">
+                <i class="bi bi-person-fill text-white" style="font-size:3rem;"></i>
+            </div>
+            {% endif %}
+            
+            <h5 class="mb-0">{{ e.apellido_paterno }} {{ e.apellido_materno or '' }}</h5>
+            <div class="text-muted mb-3">{{ e.nombres }}</div>
+            
+            <span class="badge rounded-pill fs-6 mb-3
+                {% if e.nivel_maximo == 'doctorado' %}bg-danger
+                {% elif e.nivel_maximo == 'maestria' %}bg-warning text-dark
+                {% elif e.nivel_maximo == 'titulado' %}bg-success
+                {% elif e.nivel_maximo == 'bachiller' %}bg-info text-dark
+                {% else %}bg-secondary{% endif %}">
+                {{ e.nivel_maximo|capitalize }}
+            </span>
+
+            <hr>
+
+            <div class="text-center">
+                <div class="text-muted small fw-semibold mb-2">Grados</div>
+                <div class="row g-2">
+                    {% for label, valor in [
+                        ('Bachiller',  e.es_bachiller),
+                        ('Titulado',   e.es_titulado),
+                        ('Maestría',   e.tiene_maestria),
+                        ('Doctorado',  e.tiene_doctorado)
+                    ] %}
+                    <div class="col-6 d-flex align-items-center justify-content-center gap-1">
+                        <input class="form-check-input mt-0 flex-shrink-0" type="checkbox" {{ 'checked' if valor }} disabled style="pointer-events:none;">
+                        <span class="small {{ 'text-muted' if not valor }} text-truncate" title="{{ label }}">{{ label }}</span>
+                        {% if valor %}
+                        <i class="bi bi-check-circle-fill text-success small flex-shrink-0"></i>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILA 1 COL 2: Tabs de datos -->
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-header bg-white p-0">
+                <ul class="nav nav-tabs card-header-tabs px-3">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#tab-personal">
+                            <i class="bi bi-person me-1"></i>Personal
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#tab-contacto">
+                            <i class="bi bi-telephone me-1"></i>Contacto
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#tab-direccion">
+                            <i class="bi bi-geo-alt me-1"></i>Dirección
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#tab-academico">
+                            <i class="bi bi-mortarboard me-1"></i>Académico
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body tab-content pt-4">
+
+                <!-- Tab Personal -->
+                <div class="tab-pane fade show active" id="tab-personal">
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Nombres</div>
+                            <div class="fw-semibold">{{ e.nombres }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Apellido paterno</div>
+                            <div class="fw-semibold">{{ e.apellido_paterno }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Apellido materno</div>
+                            <div>{{ e.apellido_materno or '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">DNI</div>
+                            <div>{{ e.dni }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Fecha de nacimiento</div>
+                            <div>{{ e.fecha_nacimiento or '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Género</div>
+                            <div>{{ 'Masculino' if e.genero=='M' else 'Femenino' if e.genero=='F' else e.genero or '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Código universitario</div>
+                            <div>{{ e.codigo_universitario or '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Domicilio</div>
+                            <div>{{ e.domicilio or '—' }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Contacto -->
+                <div class="tab-pane fade" id="tab-contacto">
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Teléfono</div>
+                            <div>{{ e.telefono or '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Correo institucional</div>
+                            <div>{{ e.usuario.correo if e.usuario else '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Correo personal</div>
+                            <div>{{ e.correo_personal or '—' }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Dirección -->
+                <div class="tab-pane fade" id="tab-direccion">
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <div class="text-muted small">País</div>
+                            <div>{{ e.pais or 'Perú' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Región</div>
+                            <div>{{ e.region or '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Provincia</div>
+                            <div>{{ e.provincia or '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Distrito</div>
+                            <div>{{ e.distrito or '—' }}</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="text-muted small">Domicilio completo</div>
+                            <div>{{ e.domicilio or '—' }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Académico -->
+                <div class="tab-pane fade" id="tab-academico">
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Programa</div>
+                            <div>{{ e.curricula.programa.nombre if (e.curricula and e.curricula.programa) else '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Facultad</div>
+                            <div>{{ e.curricula.programa.facultad.nombre if (e.curricula and e.curricula.programa and e.curricula.programa.facultad) else '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Currícula</div>
+                            <div>{{ e.curricula.nombre if e.curricula else '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Año de ingreso</div>
+                            <div>{{ e.anio_ingreso or '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Año de egreso</div>
+                            <div>{{ e.anio_egreso or '—' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted small">Período de ingreso</div>
+                            <div>{{ e.periodo_ingreso or '—' }}</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- FILA 2: Redes sociales -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-white fw-semibold">
+                <i class="bi bi-share me-2"></i>Redes sociales
+            </div>
+            <div class="card-body d-flex gap-3 flex-wrap align-items-center">
+                {% if e.linkedin %}
+                <a href="{{ e.linkedin }}" target="_blank" class="btn btn-outline-primary">
+                    <i class="bi bi-linkedin me-1"></i>LinkedIn
+                </a>
+                {% endif %}
+                {% if e.facebook %}
+                <a href="{{ e.facebook }}" target="_blank" class="btn btn-outline-primary">
+                    <i class="bi bi-facebook me-1"></i>Facebook
+                </a>
+                {% endif %}
+                {% if e.tiktok %}
+                <a href="https://www.tiktok.com/@{{ e.tiktok.replace('@', '') }}" target="_blank" class="btn btn-outline-dark">
+                    <i class="bi bi-tiktok me-1"></i>TikTok
+                </a>
+                {% endif %}
+                {% if not e.linkedin and not e.facebook and not e.tiktok %}
+                <span class="text-muted small">Sin redes registradas. <a href="{{ url_for('egresado.editar_perfil') }}">Agregar</a></span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- FILA 3: Perfil profesional -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-white fw-semibold">
+                <i class="bi bi-person-badge me-2"></i>Perfil profesional
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="text-muted small mb-1">Habilidades</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% set habs = e.habilidades %}
+                        {% for h in habs if h.tipo == 'habilidad' %}
+                        <span class="badge bg-light text-dark border">{{ h.nombre }}</span>
+                        {% else %}
+                        <span class="text-muted small">Sin habilidades registradas.</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <div class="text-muted small mb-1">Intereses</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for h in habs if h.tipo == 'interes' %}
+                        <span class="badge bg-light text-dark border">{{ h.nombre }}</span>
+                        {% else %}
+                        <span class="text-muted small">Sin intereses registrados.</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
