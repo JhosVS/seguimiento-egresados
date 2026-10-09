@@ -30,10 +30,10 @@ def create_app(config_class=Config):
     # Tareas programadas
     from app.utils.api_empleos import sincronizar_empleos_externos
 
-    @scheduler.task('cron', id='sincronizar_empleos_job', hour=16, minute=51)
+    @scheduler.task('cron', id='sincronizar_empleos_job', day_of_week='fri', hour=12, minute=42)
     def tarea_sincronizacion_empleos():
         with app.app_context():
-            print("⏰ [SCHEDULER] Iniciando sincronización automática de empleos...")
+            print("⏰ [SCHEDULER] Iniciando sincronización semanal de empleos...")
             res = sincronizar_empleos_externos()
             print(f"📊 Resultado: {res}")
 

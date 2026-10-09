@@ -1,117 +1,244 @@
 # app/utils/api_empleos.py
 import os
+import re
+import json
 import hashlib
 from datetime import datetime, timedelta
+
 from dotenv import load_dotenv
 from serpapi import GoogleSearch
+
 from app.extensions import db
-from app.models import OfertaLaboral  # Modelo actualizado
+from app.models import OfertaLaboral
 
 load_dotenv()
 
 SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 
+# ============================================================
+# PRESUPUESTO DE CONSULTAS
+# ============================================================
+LIMITE_PLAN = 200                       # consultas por mes del plan
+MARGEN = 20                             # colchón por si algo falla
+MAX_MENSUAL = LIMITE_PLAN - MARGEN      # tope real: 180
+VIGENCIA_DIAS = 21                      # cuánto dura una oferta tras verla (semanal + colchón)
 
-def sincronizar_empleos_externos(busqueda="Sistemas Lima OR Pasco OR Remoto"):
+# Contador local (archivo en la carpeta instance/)
+ARCHIVO_USO = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "instance", "uso_serpapi.json")
+)
+
+# ============================================================
+# QUÉ SE BUSCA (ordenado por prioridad: si falta cupo, se recortan las últimas)
+# "pais" es el nombre que se guardará en la ubicación y que usará el filtro.
+# ============================================================
+PLAN_BUSQUEDAS = [
+    # --- Perú ---
+    {"q": "soporte TI redes",           "location": "Lima, Peru", "gl": "pe", "pais": "Perú"},
+    {"q": "ingeniero de sistemas",      "location": "Peru",       "gl": "pe", "pais": "Perú"},
+    {"q": "analista de sistemas",       "location": "Peru",       "gl": "pe", "pais": "Perú"},
+    {"q": "desarrollador de software",  "location": "Peru",       "gl": "pe", "pais": "Perú"},
+    # --- España ---
+    {"q": "ingeniero de software",      "location": "Spain",        "gl": "es", "pais": "España"},
+    {"q": "desarrollador de software",  "location": "Madrid, Spain", "gl": "es", "pais": "España"},
+    {"q": "administrador de sistemas redes", "location": "Spain",   "gl": "es", "pais": "España"},
+    # --- Estados Unidos ---
+    {"q": "software engineer",          "location": "United States", "gl": "us", "pais": "Estados Unidos"},
+    {"q": "software developer remote",  "location": "United States", "gl": "us", "pais": "Estados Unidos"},
+    {"q": "network engineer",           "location": "United States", "gl": "us", "pais": "Estados Unidos"},
+    # Para ampliar más adelante (cada línea nueva = 1 consulta por semana):
+    {"q": "ingeniero de software", "location": "Mexico",   "gl": "mx", "pais": "México"},
+    {"q": "ingeniero de software", "location": "Chile",    "gl": "cl", "pais": "Chile"},
+    {"q": "ingeniero de software", "location": "Colombia", "gl": "co", "pais": "Colombia"},
+]
+
+# ============================================================
+# FILTRO DE RELEVANCIA (solo se guarda si el título tiene alguna de estas palabras)
+# ============================================================
+PALABRAS_CLAVE = [
+    "sistemas", "systems", "software", "desarrollador", "desarrolladora", "developer",
+    "programador", "programadora", "programmer", "devops", "backend", "back-end",
+    "frontend", "front-end", "full stack", "fullstack", "datos", "data", "redes",
+    "network", "cloud", "ciberseguridad", "cybersecurity", "infraestructura",
+    "infrastructure", "sysadmin", "sre", "qa", "ti", "it", "soporte ti", "it support",
+    "help desk", "mesa de ayuda",
+]
+PATRON_RELEVANTE = re.compile(
+    r"\b(" + "|".join(re.escape(p) for p in PALABRAS_CLAVE) + r")\b", re.IGNORECASE
+)
+
+
+# ============================================================
+# CONTADOR DE CONSULTAS
+# ============================================================
+def _leer_uso():
+    mes = datetime.now().strftime("%Y-%m")
+    try:
+        with open(ARCHIVO_USO, "r", encoding="utf-8") as f:
+            datos = json.load(f)
+    except (FileNotFoundError, ValueError):
+        datos = {}
+    if datos.get("mes") != mes:          # mes nuevo: se reinicia el contador
+        datos = {"mes": mes, "usadas": 0}
+    return datos
+
+
+def _guardar_uso(datos):
+    os.makedirs(os.path.dirname(ARCHIVO_USO), exist_ok=True)
+    with open(ARCHIVO_USO, "w", encoding="utf-8") as f:
+        json.dump(datos, f)
+
+
+def estado_presupuesto():
+    """Para mostrar en el panel o probar en la consola."""
+    uso = _leer_uso()
+    return {"mes": uso["mes"], "usadas": uso["usadas"], "tope": MAX_MENSUAL,
+            "restantes": MAX_MENSUAL - uso["usadas"]}
+
+
+# ============================================================
+# AYUDAS
+# ============================================================
+def _normalizar_ubicacion(ubicacion_raw, pais):
+    """Devuelve siempre 'Ciudad, País' para que el filtro por país funcione."""
+    texto = (ubicacion_raw or "").strip()
+    if not texto or texto.lower() in ("anywhere", "cualquier lugar", "remoto"):
+        return f"Remoto, {pais}"[:200]
+    ciudad = texto.split(",")[0].strip()
+    if ciudad.lower() == pais.lower():
+        return pais
+    return f"{ciudad}, {pais}"[:200]
+
+
+def _limpiar_url(raw_url):
+    if not raw_url:
+        return None
+    # Quita parámetros de rastreo (?utm_...) que causan bloqueos 403
+    return raw_url.split('?utm_')[0].split('&utm_')[0]
+
+
+# ============================================================
+# SINCRONIZACIÓN
+# ============================================================
+def sincronizar_empleos_externos(plan=None, max_busquedas=36):
     """
-    Consulta SerpApi (Google Jobs) e inserta nuevas ofertas laborales
-    en la BD local evitando duplicados mediante el hash del id_externo_job.
+    Recorre el plan de búsquedas en SerpApi (Google Jobs) y guarda ofertas
+    de sistemas/software/redes de Perú y el extranjero.
+    Gasta como máximo `max_busquedas` consultas por ejecución y nunca pasa
+    del tope mensual (MAX_MENSUAL).
     """
     if not SERPAPI_KEY:
         print("!!!! Error: SERPAPI_KEY no configurada en el archivo .env")
         return {"status": "error", "message": "Falta API Key"}
 
-    params = {
-        "engine": "google_jobs",
-        "q": busqueda,
-        "hl": "es",
-        "gl": "pe",
-        "api_key": SERPAPI_KEY
-    }
+    plan = plan or PLAN_BUSQUEDAS
+    uso = _leer_uso()
+    disponibles = MAX_MENSUAL - uso["usadas"]
+    if disponibles <= 0:
+        print(f"!!!! Presupuesto mensual agotado ({uso['usadas']}/{MAX_MENSUAL}).")
+        return {"status": "error", "message": "Presupuesto mensual agotado"}
 
-    try:
-        search = GoogleSearch(params)
-        results = search.get_dict()
+    cupo = min(max_busquedas, disponibles)
+    hoy = datetime.now().date()
+    resumen = {"status": "success", "busquedas": 0, "nuevos": 0, "renovados": 0,
+               "descartados": 0, "por_pais": {}}
+    vistos = set()   # evita repetir ofertas que salen en varias búsquedas
 
-        if "error" in results:
-            print(f"!!!! Error de SerpApi: {results['error']}")
-            return {"status": "error", "message": results["error"]}
+    for busqueda in plan[:cupo]:
+        params = {
+            "engine": "google_jobs",
+            "q": busqueda["q"],
+            "location": busqueda["location"],
+            "gl": busqueda["gl"],
+            "hl": "es",          # español para que los nombres de lugar sean consistentes
+            "api_key": SERPAPI_KEY,
+        }
 
-        jobs = results.get("jobs_results", [])
-        print(f"🔎 SerpApi devolvió {len(jobs)} ofertas encontradas para '{busqueda}'.")
+        # Se cuenta ANTES de consultar: si falla a medias, mejor pasarse por seguridad
+        uso["usadas"] += 1
+        _guardar_uso(uso)
+        resumen["busquedas"] += 1
 
-        if not jobs:
-            print("!!!! No se encontraron nuevos empleos con esa búsqueda.")
-            return {"status": "success", "nuevos": 0}
+        try:
+            resultados = GoogleSearch(params).get_dict()
+        except Exception as e:
+            print(f"!!!! Error de red en '{busqueda['q']}' / {busqueda['location']}: {e}")
+            continue
 
-        nuevas_inserciones = 0
+        error = resultados.get("error")
+        if error:
+            if "run out" in error.lower():
+                print(f"!!!! SerpApi sin consultas disponibles: {error}")
+                resumen["status"] = "error"
+                resumen["message"] = error
+                break
+            if "hasn't returned any results" not in error:
+                print(f"!!!! Error de SerpApi: {error}")
+            continue
 
-        for job in jobs:
-            job_id_raw = job.get("job_id")
-            if not job_id_raw:
-                continue
+        nuevos_aqui = 0
+        try:
+            for job in resultados.get("jobs_results", []):
+                titulo = (job.get("title") or "").strip()
+                job_id_raw = job.get("job_id")
+                if not job_id_raw or not titulo:
+                    continue
 
-            # Generamos un Hash SHA-256 único de 64 caracteres para el job_id
-            job_id_externo = hashlib.sha256(job_id_raw.encode('utf-8')).hexdigest()
+                if not PATRON_RELEVANTE.search(titulo):
+                    resumen["descartados"] += 1
+                    continue
 
-            # Verificar si la oferta ya fue sincronizada anteriormente
-            oferta_existente = OfertaLaboral.query.filter_by(id_externo_job=job_id_externo).first()
-            if oferta_existente:
-                continue
+                job_id_externo = hashlib.sha256(job_id_raw.encode("utf-8")).hexdigest()
+                if job_id_externo in vistos:
+                    continue
+                vistos.add(job_id_externo)
 
-            # Extracción de campos del JSON
-            titulo = job.get("title", "Empleo de Sistemas")
-            empresa_nombre = job.get("company_name", "Confidencial")
-            ubicacion_job = job.get("location", "Perú")
-            descripcion = job.get("description", "")
-            
-            # --- LIMPIEZA DE LA URL DE POSTULACIÓN ---
-            apply_options = job.get("apply_options", [])
-            raw_url = apply_options[0].get("link") if apply_options else None
+                existente = OfertaLaboral.query.filter_by(id_externo_job=job_id_externo).first()
+                if existente:
+                    # Sigue publicada en Google: se alarga su vigencia (si no fue desactivada)
+                    if existente.activa:
+                        existente.fecha_vencimiento = hoy + timedelta(days=VIGENCIA_DIAS)
+                        resumen["renovados"] += 1
+                    continue
 
-            if raw_url:
-                # Elimina los parámetros de rastreo (?utm_...) que causan bloqueos 403
-                url_original = raw_url.split('?utm_')[0].split('&utm_')[0]
-            else:
-                url_original = None
+                apply_options = job.get("apply_options") or []
+                raw_url = apply_options[0].get("link") if apply_options else None
+                detected = job.get("detected_extensions") or {}
+                salario = detected.get("salary")
 
-            # Metadatos adicionales
-            detected = job.get("detected_extensions", {})
-            remuneracion = str(detected.get("salary")) if detected.get("salary") else None
-            jornada = detected.get("schedule_type")
-            ruta_imagen = job.get("thumbnail")
+                nueva = OfertaLaboral(
+                    id_creado_por=None,
+                    empresa_nombre=(job.get("company_name") or "Confidencial")[:200],
+                    id_sector=None,
+                    titulo=titulo[:255],
+                    descripcion=job.get("description", ""),
+                    modalidad="Remoto" if detected.get("work_from_home") else None,
+                    jornada=(detected.get("schedule_type") or None) and detected["schedule_type"][:80],
+                    remuneracion=str(salario)[:80] if salario else None,
+                    ubicacion=_normalizar_ubicacion(job.get("location"), busqueda["pais"]),
+                    ruta_imagen=job.get("thumbnail"),
+                    url_original=_limpiar_url(raw_url),
+                    id_externo_job=job_id_externo,
+                    fuente="automatico",
+                    fecha_publicacion=hoy,
+                    fecha_vencimiento=hoy + timedelta(days=VIGENCIA_DIAS),
+                    activa=True,
+                )
+                db.session.add(nueva)
+                nuevos_aqui += 1
 
-            # Fechas (vigencia de 15 días)
-            fecha_publicacion = datetime.now().date()
-            fecha_vencimiento = fecha_publicacion + timedelta(days=15)
+            db.session.commit()   # se guarda tras cada búsqueda
+        except Exception as e:
+            db.session.rollback()
+            print(f"!!!! Error al guardar ofertas de '{busqueda['q']}': {e}")
+            continue
 
-            # Creación del registro alineado con models.py
-            nueva_oferta = OfertaLaboral(
-                id_creado_por=None,
-                empresa_nombre=empresa_nombre,
-                id_sector=None,
-                titulo=titulo,
-                descripcion=descripcion,
-                jornada=jornada,
-                remuneracion=remuneracion,
-                ubicacion=ubicacion_job,
-                ruta_imagen=ruta_imagen,
-                url_original=url_original,
-                id_externo_job=job_id_externo,
-                fuente='automatico',
-                fecha_publicacion=fecha_publicacion,
-                fecha_vencimiento=fecha_vencimiento,
-                activa=True
-            )
+        resumen["nuevos"] += nuevos_aqui
+        pais = busqueda["pais"]
+        resumen["por_pais"][pais] = resumen["por_pais"].get(pais, 0) + nuevos_aqui
+        print(f"🔎 {busqueda['q']} | {busqueda['location']}: {nuevos_aqui} nuevas")
 
-            db.session.add(nueva_oferta)
-            nuevas_inserciones += 1
-
-        db.session.commit()
-        print(f"!!!! Sincronización exitosa: {nuevas_inserciones} ofertas registradas en la base de datos.")
-        return {"status": "success", "nuevos": nuevas_inserciones}
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"!!!! Error al guardar ofertas en la BD: {e}")
-        return {"status": "error", "message": str(e)}
+    print(f"!!!! Sincronización terminada: {resumen['nuevos']} nuevas, "
+          f"{resumen['renovados']} renovadas, {resumen['descartados']} descartadas. "
+          f"Uso del mes: {uso['usadas']}/{MAX_MENSUAL}")
+    return resumen

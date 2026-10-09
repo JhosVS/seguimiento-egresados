@@ -12,6 +12,14 @@ from app.utils.api_noticias import obtener_noticias_undac, formatear_fecha
 # =======================================
 # OFERTAS LABORALES
 # =======================================
+PAISES_OFERTAS = ['Perú','Lima' ,'España', 'Estados Unidos', 'México', 'Chile', 'Colombia' ]
+
+
+def _url_segura(url):
+    """Solo se permiten enlaces http/https (evita enlaces tipo javascript:)."""
+    return url if url and url.startswith(('http://', 'https://')) else None
+
+
 @public.route('/ofertas-laborales')
 def ofertas():
     # Desactivar ofertas con fecha de vencimiento superada
@@ -21,8 +29,25 @@ def ofertas():
     ).update({'activa': 0})
     db.session.commit()
 
-    lista = OfertaLaboral.query.filter_by(activa=1)\
-                               .order_by(OfertaLaboral.fecha_publicacion.desc()).all()
+    base = OfertaLaboral.query.filter_by(activa=1)
+    total_activas = base.count()
+
+    # Cantidad de ofertas por país, para los botones del filtro
+    paises = [
+        {'nombre': p,
+         'total': base.filter(OfertaLaboral.ubicacion.ilike(f'%{p}')).count()}
+        for p in PAISES_OFERTAS
+    ]
+
+    # País elegido (?pais=España). Si no es uno válido, se ignora.
+    pais_activo = request.args.get('pais')
+    if pais_activo not in PAISES_OFERTAS:
+        pais_activo = None
+
+    consulta = base
+    if pais_activo:
+        consulta = consulta.filter(OfertaLaboral.ubicacion.ilike(f'%{pais_activo}'))
+    lista = consulta.order_by(OfertaLaboral.fecha_publicacion.desc()).all()
 
     def obtener_url_imagen(ruta):
         if not ruta:
@@ -31,11 +56,12 @@ def ofertas():
             return ruta
         return url_for('static', filename=ruta)
 
-    ofertas_json = json.dumps([{
+    # Ahora es una lista normal; la plantilla la convierte con |tojson
+    ofertas_json = [{
         'id': o.id_oferta,
         'titulo': o.titulo,
-        'empresa': o.empresa_nombre,  # <--- Corregido: el campo en models.py es empresa_nombre
-        'telefono': o.contacto_telefono,  # <--- Nota: en models.py es contacto_telefono
+        'empresa': o.empresa_nombre,
+        'telefono': o.contacto_telefono,
         'tipo_oferta': o.tipo_oferta,
         'jornada': o.jornada,
         'remuneracion': o.remuneracion,
@@ -44,11 +70,12 @@ def ofertas():
         'descripcion': o.descripcion,
         'funciones': o.funciones,
         'requisitos': o.requisitos,
+        'fuente': o.fuente,
         'ruta_imagen': obtener_url_imagen(o.ruta_imagen),
-        'url_original': o.url_original,
+        'url_original': _url_segura(o.url_original),
         'fecha_publicacion': o.fecha_publicacion.strftime('%d/%m/%Y') if o.fecha_publicacion else None,
         'fecha_vencimiento': o.fecha_vencimiento.strftime('%d/%m/%Y') if o.fecha_vencimiento else None,
-    } for o in lista])
+    } for o in lista]
 
     portales = [
         {
@@ -101,10 +128,13 @@ def ofertas():
         }
     ]
 
-    return render_template('public/ofertas.html', 
-        ofertas=lista, 
+    return render_template('public/ofertas.html',
+        ofertas=lista,
         ofertas_json=ofertas_json,
         portales=portales,
+        paises=paises,
+        pais_activo=pais_activo,
+        total_activas=total_activas,
         anio=date.today().year
     )
 

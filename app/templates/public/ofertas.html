@@ -50,6 +50,20 @@
         </div>
     </div>
 
+        <!-- Filtro por país -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <a href="{{ url_for('public.ofertas') }}"
+           class="btn btn-sm {{ 'btn-primary' if not pais_activo else 'btn-outline-primary' }}">
+            Todas <span class="badge bg-light text-dark ms-1">{{ total_activas }}</span>
+        </a>
+        {% for p in paises if p.total > 0 %}
+        <a href="{{ url_for('public.ofertas', pais=p.nombre) }}"
+           class="btn btn-sm {{ 'btn-primary' if pais_activo == p.nombre else 'btn-outline-primary' }}">
+            {{ p.nombre }} <span class="badge bg-light text-dark ms-1">{{ p.total }}</span>
+        </a>
+        {% endfor %}
+    </div>
+
     {% if ofertas %}
     <!-- Grid Principal (Lista 5 Cols / Detalle 7 Cols) -->
     <div class="row g-3 mb-5">
@@ -111,7 +125,7 @@
     </div>
 
     <!-- Script con los datos dinámicos -->
-    <script id="datos-ofertas" type="application/json">{{ ofertas_json | safe }}</script>
+    <script id="datos-ofertas" type="application/json">{{ ofertas_json | tojson }}</script>
 
     {% else %}
     <!-- Estado Vacío General -->
@@ -163,6 +177,17 @@
 <script>
 const ofertasData = JSON.parse(document.getElementById('datos-ofertas')?.textContent || '[]');
 
+// Convierte texto en texto seguro (evita que se ejecute HTML)
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => (
+        {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]
+    ));
+}
+// Igual, pero respetando los saltos de línea
+function multi(s) {
+    return esc(s).replace(/\n/g, '<br>');
+}
+
 if (ofertasData.length > 0) {
     mostrarDetalle(ofertasData[0].id);
 }
@@ -171,42 +196,38 @@ function mostrarDetalle(id) {
     const o = ofertasData.find(x => x.id == id);
     if (!o) return;
 
-    // Marcador de selección activa en la lista
     document.querySelectorAll('.card-mini').forEach(c => c.classList.remove('seleccionada'));
     document.querySelector(`.card-mini[data-id="${id}"]`)?.classList.add('seleccionada');
-    
+
     document.getElementById('detalle-vacio').style.display = 'none';
     const cont = document.getElementById('detalle-contenido');
     cont.style.display = 'block';
 
-    const esApi = o.fuente === 'automatico' || (o.ruta_imagen && o.ruta_imagen.startsWith('http'));
+    const esApi = o.fuente === 'automatico';
     const tieneImagen = Boolean(o.ruta_imagen);
 
     cont.innerHTML = `
         <div class="p-4">
-            <!-- Encabezado -->
             <div class="d-flex align-items-center gap-3 mb-3 border-bottom pb-3">
-                ${tieneImagen && esApi ? 
-                    `<img src="${o.ruta_imagen}" alt="Logo" class="rounded border p-1" style="width:54px; height:54px; object-fit:contain;">` : 
+                ${tieneImagen && esApi ?
+                    `<img src="${esc(o.ruta_imagen)}" alt="Logo" class="rounded border p-1" style="width:54px; height:54px; object-fit:contain;">` :
                     `<div class="rounded-circle bg-primary bg-opacity-10 p-3"><i class="bi bi-briefcase-fill text-primary fs-4"></i></div>`
                 }
                 <div>
-                    <h5 class="fw-bold mb-1">${o.titulo}</h5>
-                    <div class="text-muted small"><i class="bi bi-building me-1"></i>${o.empresa || 'Empresa no especificada'}</div>
+                    <h5 class="fw-bold mb-1">${esc(o.titulo)}</h5>
+                    <div class="text-muted small"><i class="bi bi-building me-1"></i>${esc(o.empresa) || 'Empresa no especificada'}</div>
                 </div>
             </div>
 
-            <!-- AFICHE PUBLICITARIO (Si es oferta manual con imagen) -->
             ${tieneImagen && !esApi ? `
                 <div class="mb-3 text-center bg-light p-2 rounded border">
-                    <a href="${o.ruta_imagen}" target="_blank" title="Haga clic para ver en tamaño completo">
-                        <img src="${o.ruta_imagen}" alt="Afiche de la oferta" class="img-fluid rounded shadow-sm" style="max-height: 450px; object-fit: contain;">
+                    <a href="${esc(o.ruta_imagen)}" target="_blank" title="Haga clic para ver en tamaño completo">
+                        <img src="${esc(o.ruta_imagen)}" alt="Afiche de la oferta" class="img-fluid rounded shadow-sm" style="max-height: 450px; object-fit: contain;">
                     </a>
                     <div class="form-text mt-1"><i class="bi bi-zoom-in me-1"></i>Haz clic en la imagen para verla en tamaño completo</div>
                 </div>
             ` : ''}
 
-            <!-- Datos Rápidos Grid -->
             <div class="row g-2 bg-light p-2 rounded mb-3 border">
                 ${itemGrid('Ubicación', o.ubicacion)}
                 ${itemGrid('Modalidad', o.modalidad)}
@@ -215,15 +236,13 @@ function mostrarDetalle(id) {
                 ${itemGrid('Publicado', o.fecha_publicacion)}
             </div>
 
-            <!-- Descripción, Funciones y Requisitos -->
-            ${o.descripcion ? `<h6 class="fw-bold text-primary small text-uppercase mt-3">Descripción</h6><p class="small text-secondary">${o.descripcion}</p>` : ''}
-            ${o.funciones ? `<h6 class="fw-bold text-primary small text-uppercase mt-3">Funciones</h6><p class="small text-secondary">${o.funciones.replace(/\n/g,'<br>')}</p>` : ''}
-            ${o.requisitos ? `<h6 class="fw-bold text-primary small text-uppercase mt-3">Requisitos</h6><p class="small text-secondary">${o.requisitos.replace(/\n/g,'<br>')}</p>` : ''}
+            ${o.descripcion ? `<h6 class="fw-bold text-primary small text-uppercase mt-3">Descripción</h6><p class="small text-secondary">${multi(o.descripcion)}</p>` : ''}
+            ${o.funciones ? `<h6 class="fw-bold text-primary small text-uppercase mt-3">Funciones</h6><p class="small text-secondary">${multi(o.funciones)}</p>` : ''}
+            ${o.requisitos ? `<h6 class="fw-bold text-primary small text-uppercase mt-3">Requisitos</h6><p class="small text-secondary">${multi(o.requisitos)}</p>` : ''}
 
-            <!-- Botón de Postulación -->
             ${o.url_original ? `
                 <div class="mt-4 pt-2 border-top text-center">
-                    <a href="${o.url_original}" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 fw-bold py-2">
+                    <a href="${esc(o.url_original)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 fw-bold py-2">
                         <i class="bi bi-box-arrow-up-right me-1"></i> Postular / Ver oferta original
                     </a>
                 </div>` : ''}
@@ -235,8 +254,8 @@ function itemGrid(label, valor) {
     if (!valor) return '';
     return `
         <div class="col-6 col-md-4">
-            <span class="d-block text-muted" style="font-size:.7rem;">${label}</span>
-            <span class="fw-semibold small">${valor}</span>
+            <span class="d-block text-muted" style="font-size:.7rem;">${esc(label)}</span>
+            <span class="fw-semibold small">${esc(valor)}</span>
         </div>`;
 }
 </script>
