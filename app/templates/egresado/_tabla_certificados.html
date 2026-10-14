@@ -1,0 +1,183 @@
+{# ---------- Fila de formulario (nuevo o edición) ---------- #}
+{% macro fila_form(c, datos, categorias, niveles) %}
+    {% set nombre      = datos.nombre              if datos else (c.nombre if c else '') %}
+    {% set institucion = datos.institucion_emisora if datos else (c.institucion_emisora if c else '') %}
+    {% set categoria   = datos.categoria           if datos else (c.categoria if c else 'curso') %}
+    {% set nivel       = datos.nivel_idioma        if datos else ((c.nivel_idioma or '') if c else '') %}
+    {% set fecha       = datos.fecha_emision       if datos else (c.fecha_emision.isoformat() if c and c.fecha_emision else '') %}
+    {% set url         = datos.url_credencial      if datos else ((c.url_credencial or '') if c else '') %}
+
+    <tr>
+        <td class="text-muted small">{{ '✎' if c else '+' }}</td>
+        <td>
+            <input type="text" name="nombre" form="f-cert" class="form-control form-control-sm"
+                   value="{{ nombre }}" maxlength="255" required autofocus
+                   placeholder="Ej: Python para Ciencia de Datos">
+        </td>
+        <td>
+            <input type="text" name="institucion_emisora" form="f-cert" class="form-control form-control-sm"
+                   value="{{ institucion }}" maxlength="200" required placeholder="Coursera, SENATI, UNDAC...">
+        </td>
+        <td>
+            <select name="categoria" form="f-cert" class="form-select form-select-sm"
+                    onchange="document.getElementById('wrap-nivel').style.display = this.value === 'idioma' ? '' : 'none'">
+                {% for valor, etiqueta in categorias %}
+                <option value="{{ valor }}" {{ 'selected' if categoria == valor }}>{{ etiqueta }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <input type="date" name="fecha_emision" form="f-cert" class="form-control form-control-sm"
+                   value="{{ fecha }}">
+        </td>
+        <td></td>
+        <td class="text-end text-nowrap">
+            <button type="submit" form="f-cert" class="btn btn-sm btn-success" title="Guardar">
+                <i class="bi bi-check-lg"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" title="Cancelar"
+                    hx-get="{{ url_for('egresado.certificados_tabla') }}">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </td>
+    </tr>
+    <tr>
+        <td></td>
+        <td colspan="6">
+            <div class="row g-2">
+                <div class="col-md-3" id="wrap-nivel" style="{{ '' if categoria == 'idioma' else 'display:none' }}">
+                    <label class="form-label small mb-0">Nivel de idioma</label>
+                    <select name="nivel_idioma" form="f-cert" class="form-select form-select-sm">
+                        <option value="">—</option>
+                        {% for valor, etiqueta in niveles %}
+                        <option value="{{ valor }}" {{ 'selected' if nivel == valor }}>{{ etiqueta }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-0">URL de la credencial <span class="text-muted">(opcional)</span></label>
+                    <input type="url" name="url_credencial" form="f-cert" class="form-control form-control-sm"
+                           value="{{ url }}" placeholder="https://...">
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label small mb-0">Copia en PDF <span class="text-muted">(opcional, máx. 5 MB)</span></label>
+                    <input type="file" name="archivo" form="f-cert" class="form-control form-control-sm"
+                           accept="application/pdf,.pdf">
+                    {% if c and c.ruta_archivo %}
+                    <div class="form-check mt-1">
+                        <input type="checkbox" name="quitar_pdf" id="quitar-pdf" form="f-cert" class="form-check-input">
+                        <label class="form-check-label small" for="quitar-pdf">
+                            Ya tiene un PDF guardado. Sube otro para reemplazarlo o marca aquí para quitarlo.
+                        </label>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </td>
+    </tr>
+{% endmacro %}
+
+
+{% if errores %}
+<div class="alert alert-danger py-2 small">
+    <ul class="mb-0 ps-3">
+        {% for err in errores %}<li>{{ err }}</li>{% endfor %}
+    </ul>
+    {% if datos %}<div class="mt-1">Si ibas a subir un PDF, vuelve a seleccionarlo.</div>{% endif %}
+</div>
+{% endif %}
+
+{# Formulario vacío: los campos de la fila se conectan a él. hx-encoding permite subir el PDF #}
+{% if nuevo %}
+<form id="f-cert" hx-post="{{ url_for('egresado.guardar_certificado_nuevo') }}"
+      hx-encoding="multipart/form-data"></form>
+{% elif editando %}
+<form id="f-cert" hx-post="{{ url_for('egresado.guardar_certificado', id=editando) }}"
+      hx-encoding="multipart/form-data"></form>
+{% endif %}
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:40px">#</th>
+                    <th>Certificado</th>
+                    <th>Institución</th>
+                    <th>Categoría</th>
+                    <th>Fecha</th>
+                    <th>Documentos</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            {% if nuevo %}
+            <tbody class="table-primary">
+                {{ fila_form(none, datos, categorias, niveles) }}
+            </tbody>
+            {% endif %}
+
+            {% for c in certificados %}
+                {% if editando == c.id_certificado %}
+                <tbody class="table-primary">
+                    {{ fila_form(c, datos, categorias, niveles) }}
+                </tbody>
+                {% else %}
+                <tbody>
+                    <tr>
+                        <td class="text-muted small">{{ loop.index }}</td>
+                        <td class="fw-semibold small">{{ c.nombre }}</td>
+                        <td class="small">{{ c.institucion_emisora }}</td>
+                        <td class="small">
+                            <span class="badge bg-secondary">{{ etiqueta_cat[c.categoria] }}</span>
+                            {% if c.nivel_idioma %}
+                            <span class="text-muted">· {{ etiqueta_nivel[c.nivel_idioma] }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="small">{{ c.fecha_emision.strftime('%d/%m/%Y') if c.fecha_emision else '—' }}</td>
+                        <td class="text-nowrap">
+                            {% if c.ruta_archivo %}
+                            <a href="{{ url_for('egresado.archivo_certificado', id=c.id_certificado) }}"
+                               target="_blank" class="btn btn-sm btn-outline-primary" title="Ver PDF">
+                                <i class="bi bi-file-earmark-pdf"></i>
+                            </a>
+                            {% endif %}
+                            {% if c.url_credencial and c.url_credencial.lower().startswith(('http://', 'https://')) %}
+                            <a href="{{ c.url_credencial }}" target="_blank" rel="noopener noreferrer"
+                               class="btn btn-sm btn-outline-primary" title="Ver credencial en línea">
+                                <i class="bi bi-link-45deg"></i>
+                            </a>
+                            {% endif %}
+                            {% if not c.ruta_archivo and not c.url_credencial %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Editar"
+                                    hx-get="{{ url_for('egresado.certificados_tabla', editar=c.id_certificado) }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar"
+                                    hx-post="{{ url_for('egresado.eliminar_certificado', id=c.id_certificado) }}"
+                                    hx-confirm="¿Eliminar este registro?">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+                {% endif %}
+            {% endfor %}
+
+            {% if not certificados and not nuevo %}
+            <tbody>
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-5">
+                        <i class="bi bi-patch-check fs-1 d-block"></i>
+                        Aún no registras formación complementaria. Pulsa <strong>Nuevo</strong> para agregar la primera.
+                    </td>
+                </tr>
+            </tbody>
+            {% endif %}
+        </table>
+    </div>
+</div>

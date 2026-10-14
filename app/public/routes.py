@@ -8,16 +8,26 @@ from app.public import public
 from app.models import OfertaLaboral, Egresado
 from app.extensions import db
 from app.utils.api_noticias import obtener_noticias_undac, formatear_fecha
+from sqlalchemy import or_, not_
 
 # =======================================
 # OFERTAS LABORALES
 # =======================================
-PAISES_OFERTAS = ['Perú','Lima' ,'España', 'Estados Unidos', 'México', 'Chile', 'Colombia' ]
-
-
 def _url_segura(url):
     """Solo se permiten enlaces http/https (evita enlaces tipo javascript:)."""
     return url if url and url.startswith(('http://', 'https://')) else None
+
+
+def _filtro_nacional():
+    """Nacional = menciona Perú, o solo trae una ciudad sin país."""
+    u = OfertaLaboral.ubicacion
+    return or_(
+        u.is_(None),
+        u == '',
+        u.ilike('%Perú%'),
+        u.ilike('%Peru%'),
+        not_(u.like('%,%')),
+    )
 
 
 @public.route('/ofertas-laborales')
@@ -30,23 +40,23 @@ def ofertas():
     db.session.commit()
 
     base = OfertaLaboral.query.filter_by(activa=1)
-    total_activas = base.count()
+    nacional = _filtro_nacional()
 
-    # Cantidad de ofertas por país, para los botones del filtro
-    paises = [
-        {'nombre': p,
-         'total': base.filter(OfertaLaboral.ubicacion.ilike(f'%{p}')).count()}
-        for p in PAISES_OFERTAS
+    ambitos = [
+        {'clave': 'nacionales', 'nombre': 'Nacionales', 'total': base.filter(nacional).count()},
+        {'clave': 'internacionales', 'nombre': 'Internacionales', 'total': base.filter(not_(nacional)).count()},
     ]
 
-    # País elegido (?pais=España). Si no es uno válido, se ignora.
-    pais_activo = request.args.get('pais')
-    if pais_activo not in PAISES_OFERTAS:
-        pais_activo = None
+    # ?ambito=nacionales o ?ambito=internacionales. Si es otra cosa, se ignora.
+    ambito_activo = request.args.get('ambito')
+    if ambito_activo not in ('nacionales', 'internacionales'):
+        ambito_activo = None
 
     consulta = base
-    if pais_activo:
-        consulta = consulta.filter(OfertaLaboral.ubicacion.ilike(f'%{pais_activo}'))
+    if ambito_activo == 'nacionales':
+        consulta = base.filter(nacional)
+    elif ambito_activo == 'internacionales':
+        consulta = base.filter(not_(nacional))
     lista = consulta.order_by(OfertaLaboral.fecha_publicacion.desc()).all()
 
     def obtener_url_imagen(ruta):
@@ -56,7 +66,6 @@ def ofertas():
             return ruta
         return url_for('static', filename=ruta)
 
-    # Ahora es una lista normal; la plantilla la convierte con |tojson
     ofertas_json = [{
         'id': o.id_oferta,
         'titulo': o.titulo,
@@ -132,9 +141,8 @@ def ofertas():
         ofertas=lista,
         ofertas_json=ofertas_json,
         portales=portales,
-        paises=paises,
-        pais_activo=pais_activo,
-        total_activas=total_activas,
+        ambitos=ambitos,
+        ambito_activo=ambito_activo,
         anio=date.today().year
     )
 

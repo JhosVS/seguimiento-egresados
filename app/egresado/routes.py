@@ -1,4 +1,7 @@
 # app/egresado/routes.py
+import os
+import uuid
+from flask import send_from_directory, current_app, abort
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from functools import wraps
@@ -14,6 +17,7 @@ from app.models import (
     Certificado, Habilidad, Sector,
     Encuesta, EncuestaEnvio, Pregunta, Respuesta, RespuestaOpcion
 )
+from datetime import datetime
 
 # ============================================
 # UTILIDADES Y DECORADORES
@@ -109,180 +113,447 @@ def editar_perfil():
 
 
 # ============================================
-# EMPLEOS
+# EXPERIENCIA LABORAL (antes "Empleos")
+# Todo ocurre en una sola página: la tabla se registra y edita en el sitio.
 # ============================================
+TIPOS_CONTRATO = ['Nombrado', 'Contratado', 'Practicante', 'Independiente']
+
+
+def _fecha(valor):
+    """'2026-10-14' -> date. Si viene vacío o mal escrito -> None."""
+    try:
+        return datetime.strptime(valor, '%Y-%m-%d').date() if valor else None
+    except ValueError:
+        return None
+
+
+def _contexto_empleos(nuevo=False, editando=None, datos=None, errores=None):
+    """Todo lo que necesita la tabla para dibujarse."""
+    lista = (Empleo.query.filter_by(id_egresado=current_user.id_egresado)
+             .order_by(Empleo.fecha_fin.is_(None).desc(), Empleo.fecha_inicio.desc())
+             .all())
+    return dict(
+        empleos=lista,
+        sectores=Sector.query.order_by(Sector.nombre).all(),
+        tipos_contrato=TIPOS_CONTRATO,
+        nuevo=nuevo,             # True = mostrar la fila para registrar uno nuevo
+        editando=editando,       # id del empleo que se está editando
+        datos=datos or {},       # lo que el usuario escribió (para no perderlo si hay un error)
+        errores=errores or [],
+    )
+
+
+def _tabla_empleos(**kwargs):
+    return render_template('egresado/_tabla_empleos.html', **_contexto_empleos(**kwargs))
+
+
+def _validar_empleo(form, empleo=None):
+    """Devuelve (errores, valores_limpios)."""
+    errores = []
+    empresa = form.get('empresa_nombre', '').strip()
+    cargo = form.get('cargo', '').strip()
+    contrato = form.get('tipo_contrato', '').strip()
+    es_actual = form.get('es_actual') == 'on'
+    f_inicio = _fecha(form.get('fecha_inicio'))
+    f_fin = None if es_actual else _fecha(form.get('fecha_fin'))
+
+    try:
+        id_sector = int(form.get('id_sector')) if form.get('id_sector') else None
+    except ValueError:
+        id_sector = None
+        errores.append('El sector no es válido.')
+    if id_sector and not db.session.get(Sector, id_sector):
+        errores.append('El sector no existe.')
+
+    if not empresa:
+        errores.append('Escribe la empresa o institución.')
+    if not cargo:
+        errores.append('Escribe el cargo.')
+    if not f_inicio:
+        errores.append('La fecha de inicio es obligatoria (día, mes y año).')
+    if not es_actual and not f_fin:
+        errores.append('Indica la fecha de fin o marca "Actual".')
+    if f_inicio and f_fin and f_fin < f_inicio:
+        errores.append('La fecha de fin no puede ser anterior a la de inicio.')
+    # Se acepta un valor antiguo (de cuando el campo era libre) solo si ya lo tenía el empleo
+    if contrato and contrato not in TIPOS_CONTRATO and not (empleo and contrato == empleo.tipo_contrato):
+        errores.append('El tipo de contrato no es válido.')
+
+    valores = dict(
+        empresa_nombre=empresa[:200],
+        id_sector=id_sector,
+        cargo=cargo[:150],
+        tipo_contrato=contrato or None,
+        fecha_inicio=f_inicio,
+        fecha_fin=f_fin,
+        funciones=form.get('funciones', '').strip() or None,
+    )
+    return errores, valores
+
+
+def _guardar_empleo(empleo=None):
+    errores, valores = _validar_empleo(request.form, empleo)
+    if errores:
+        # Se vuelve a mostrar la fila con lo que escribió y los errores
+        return _tabla_empleos(nuevo=empleo is None,
+                              editando=empleo.id_empleo if empleo else None,
+                              datos=request.form.to_dict(), errores=errores)
+
+    if empleo is None:
+        empleo = Empleo(id_egresado=current_user.id_egresado)
+        db.session.add(empleo)
+    for campo, valor in valores.items():
+        setattr(empleo, campo, valor)
+    db.session.commit()
+    return _tabla_empleos()
+
 
 @egresado.route('/empleos')
 @login_required
 @solo_egresado
 def empleos():
-    lista = Empleo.query.filter_by(id_egresado=current_user.id_egresado)\
-                         .order_by(Empleo.fecha_fin.is_(None).desc(), Empleo.fecha_inicio.desc()).all()
-    return render_template('egresado/empleos.html', empleos=lista)
+    return render_template('egresado/empleos.html', **_contexto_empleos())
 
 
-from datetime import datetime
-@egresado.route('/empleos/nuevo', methods=['GET', 'POST'])
+@egresado.route('/empleos/tabla')
 @login_required
 @solo_egresado
-def nuevo_empleo():
-    egresado = current_user.egresado
+def empleos_tabla():
+    """Solo la tabla. ?nuevo=1 abre la fila de registro; ?editar=<id> abre la de edición."""
+    return _tabla_empleos(nuevo=request.args.get('nuevo') == '1',
+                          editando=request.args.get('editar', type=int))
 
-    if request.method == 'POST':
-        id_sector_val = request.form.get('id_sector')
-        id_sector = int(id_sector_val) if id_sector_val else None
 
-        es_actual = request.form.get('es_actual') == 'on'
-        
-        f_inicio_str = request.form.get('fecha_inicio')
-        f_fin_str = request.form.get('fecha_fin')
+@egresado.route('/empleos/guardar', methods=['POST'])
+@login_required
+@solo_egresado
+def guardar_empleo_nuevo():
+    return _guardar_empleo()
 
-        # Convertir YYYY-MM a objeto Date
-        fecha_inicio = datetime.strptime(f_inicio_str, '%Y-%m').date() if f_inicio_str else None
-        fecha_fin = None if es_actual or not f_fin_str else datetime.strptime(f_fin_str, '%Y-%m').date()
 
-        empleo = Empleo(
-            id_egresado=egresado.id_egresado,
-            empresa_nombre=request.form.get('empresa_nombre'),
-            id_sector=id_sector,
-            cargo=request.form.get('cargo'),
-            tipo_contrato=request.form.get('tipo_contrato'),
-            fecha_inicio=fecha_inicio,
-            fecha_fin=fecha_fin,
-            funciones=request.form.get('funciones')
-        )
-        
-        db.session.add(empleo)
-        db.session.commit()
-
-        flash(f'Empleo en "{empleo.empresa_nombre}" registrado. Puedes agregar el siguiente.', 'success')
-        return redirect(url_for('egresado.nuevo_empleo'))
-
-    sectores = Sector.query.all()
-    return render_template('egresado/nuevo_empleo.html', sectores=sectores)
+@egresado.route('/empleos/<int:id>/guardar', methods=['POST'])
+@login_required
+@solo_egresado
+def guardar_empleo(id):
+    empleo = Empleo.query.filter_by(id_empleo=id, id_egresado=current_user.id_egresado).first_or_404()
+    return _guardar_empleo(empleo)
 
 
 @egresado.route('/empleos/<int:id>/eliminar', methods=['POST'])
 @login_required
 @solo_egresado
 def eliminar_empleo(id):
-    empleo = Empleo.query.get_or_404(id)
-    if empleo.id_egresado != current_user.id_egresado:
-        flash('No tienes permiso para eliminar este empleo.', 'danger')
-        return redirect(url_for('egresado.empleos'))
-
+    empleo = Empleo.query.filter_by(id_empleo=id, id_egresado=current_user.id_egresado).first_or_404()
     db.session.delete(empleo)
     db.session.commit()
-    flash('Empleo eliminado.', 'info')
-    return redirect(url_for('egresado.empleos'))
+    return _tabla_empleos()
 
 
 # ============================================
-# FORMACIÓN PROFESIONAL (TITULOS Y GRADOS)
+# FORMACIÓN PROFESIONAL (grados y títulos)
+# Se registra y edita en la misma tabla.
 # ============================================
+TIPOS_GRADO = [('bachiller', 'Bachiller'), ('titulado', 'Título profesional'),
+               ('maestria', 'Maestría'), ('doctorado', 'Doctorado')]
+INSTITUCION_UNDAC = 'Universidad Nacional Daniel Alcides Carrión'
+
+
+def _contexto_formacion(nuevo=False, editando=None, datos=None, errores=None):
+    e = db.session.get(Egresado, current_user.id_egresado)
+    logros = (FormacionAcademica.query.filter_by(id_egresado=e.id_egresado)
+              .order_by(FormacionAcademica.fecha_obtencion).all())
+    return dict(
+        e=e,
+        logros=logros,
+        tipos=TIPOS_GRADO,
+        etiqueta_tipo=dict(TIPOS_GRADO),
+        institucion_defecto=INSTITUCION_UNDAC,
+        hoy=datetime.now().date().isoformat(),
+        nuevo=nuevo,
+        editando=editando,
+        datos=datos or {},
+        errores=errores or [],
+    )
+
+
+def _tabla_formacion(**kwargs):
+    return render_template('egresado/_tabla_formacion.html', **_contexto_formacion(**kwargs))
+
+
+def _validar_grado(form):
+    errores = []
+    tipo = form.get('tipo', '').strip()
+    grado = form.get('grado_titulo', '').strip()
+    institucion = form.get('institucion', '').strip()
+    fecha = _fecha(form.get('fecha_obtencion'))
+
+    if tipo not in dict(TIPOS_GRADO):
+        errores.append('Selecciona el tipo (bachiller, título, maestría o doctorado).')
+    if not grado:
+        errores.append('Escribe el grado o título.')
+    if not institucion:
+        errores.append('Escribe la institución.')
+    if not fecha:
+        errores.append('La fecha del diploma es obligatoria y debe ser válida.')
+    elif fecha > datetime.now().date():
+        errores.append('La fecha del diploma no puede ser futura.')
+
+    valores = dict(tipo=tipo, grado_titulo=grado[:300], institucion=institucion[:200],
+                   fecha_obtencion=fecha)
+    return errores, valores
+
+
+def _guardar_grado(logro=None):
+    errores, valores = _validar_grado(request.form)
+    if errores:
+        return _tabla_formacion(nuevo=logro is None,
+                                editando=logro.id_formacion if logro else None,
+                                datos=request.form.to_dict(), errores=errores)
+
+    if logro is None:
+        logro = FormacionAcademica(id_egresado=current_user.id_egresado, fuente='SUNEDU')
+        db.session.add(logro)
+    for campo, valor in valores.items():
+        setattr(logro, campo, valor)
+    db.session.commit()
+    return _tabla_formacion()
+
 
 @egresado.route('/formacion_profesional')
 @login_required
 @solo_egresado
 def formacion_profesional():
-    e = Egresado.query.get(current_user.id_egresado)
-    logros = FormacionAcademica.query.filter_by(id_egresado=e.id_egresado)\
-                                      .order_by(FormacionAcademica.fecha_obtencion).all()
-    return render_template('egresado/formacion_profesional.html', e=e, logros=logros)
+    contexto = _contexto_formacion()
+    return render_template('egresado/formacion_profesional.html',
+                           nombre_programa=contexto['e'].programa.nombre, **contexto)
+
+
+@egresado.route('/formacion_profesional/tabla')
+@login_required
+@solo_egresado
+def formacion_profesional_tabla():
+    return _tabla_formacion(nuevo=request.args.get('nuevo') == '1',
+                            editando=request.args.get('editar', type=int))
+
+
+@egresado.route('/formacion_profesional/guardar', methods=['POST'])
+@login_required
+@solo_egresado
+def guardar_grado_nuevo():
+    return _guardar_grado()
+
+
+@egresado.route('/formacion_profesional/<int:id>/guardar', methods=['POST'])
+@login_required
+@solo_egresado
+def guardar_grado(id):
+    logro = FormacionAcademica.query.filter_by(id_formacion=id,
+                                               id_egresado=current_user.id_egresado).first_or_404()
+    return _guardar_grado(logro)
 
 
 @egresado.route('/formacion_profesional/<int:id>/eliminar', methods=['POST'])
 @login_required
 @solo_egresado
 def eliminar_logro(id):
-    logro = FormacionAcademica.query.get_or_404(id)
-    if logro.id_egresado != current_user.id_egresado:
-        flash('No tienes permiso.', 'danger')
-        return redirect(url_for('egresado.formacion_profesional'))
+    logro = FormacionAcademica.query.filter_by(id_formacion=id,
+                                               id_egresado=current_user.id_egresado).first_or_404()
     db.session.delete(logro)
     db.session.commit()
-    flash('Registro eliminado.', 'info')
-    return redirect(url_for('egresado.formacion_profesional'))
-
-
-@egresado.route('/formacion-profesional/nuevo', methods=['GET', 'POST'])
-@login_required
-@solo_egresado
-def nuevo_grado_titulo():
-    e = current_user.egresado
-    nombre_programa = e.programa.nombre if hasattr(e, 'programa') and e.programa else ''
-
-    if request.method == 'POST':
-        tipo = request.form.get('tipo', '').strip()
-
-        logro = FormacionAcademica(
-            id_egresado     = e.id_egresado,
-            tipo            = tipo,
-            grado_titulo    = request.form.get('grado_titulo', '').strip(),
-            institucion     = request.form.get('institucion', '').strip() or 'Universidad Nacional Daniel Alcides Carrión',
-            fecha_obtencion = request.form.get('fecha_obtencion'),
-            fuente          = 'SUNEDU',
-        )
-        db.session.add(logro)
-        db.session.commit()
-
-        flash('Grado/Título registrado correctamente. Puedes agregar el siguiente.', 'success')
-        return redirect(url_for('egresado.nuevo_grado_titulo'))
-
-    nombre_programa = e.programa.nombre if hasattr(e, 'programa') and e.programa else ''
-    return render_template('egresado/nuevo_grado_titulo.html', e=e, nombre_programa=nombre_programa)
+    return _tabla_formacion()
 
 
 # ============================================
-# CERTIFICADOS Y ESPECIALIZACIONES
+# FORMACIÓN COMPLEMENTARIA (antes "Certificados")
+# Se registra y edita en la misma tabla, con PDF opcional.
 # ============================================
+CATEGORIAS_CERT = [('curso', 'Curso'), ('capacitacion', 'Capacitación'), ('taller', 'Taller'),
+                   ('idioma', 'Idioma'), ('otro', 'Otro')]
+NIVELES_IDIOMA = [('basico', 'Básico'), ('intermedio', 'Intermedio'), ('avanzado', 'Avanzado')]
+MAX_PDF_BYTES = 5 * 1024 * 1024     # 5 MB
+
+
+# --- PDF: carpeta PRIVADA (instance/), no pública. Se sirve solo con permiso ---
+def _carpeta_certificados():
+    carpeta = os.path.join(current_app.instance_path, 'certificados')
+    os.makedirs(carpeta, exist_ok=True)
+    return carpeta
+
+
+def _revisar_pdf(archivo):
+    """Devuelve un mensaje de error, o None si el PDF es válido."""
+    if not archivo.filename.lower().endswith('.pdf'):
+        return 'El archivo debe ser un PDF.'
+    cabecera = archivo.stream.read(5)
+    archivo.stream.seek(0, os.SEEK_END)
+    tamano = archivo.stream.tell()
+    archivo.stream.seek(0)
+    if cabecera != b'%PDF-':          # se revisa el contenido real, no solo la extensión
+        return 'El archivo no es un PDF válido.'
+    if tamano > MAX_PDF_BYTES:
+        return 'El PDF no puede pesar más de 5 MB.'
+    return None
+
+
+def _guardar_pdf(archivo):
+    nombre = f'{uuid.uuid4().hex}.pdf'      # nombre aleatorio: no se usa el del usuario
+    archivo.save(os.path.join(_carpeta_certificados(), nombre))
+    return nombre
+
+
+def _borrar_pdf(nombre):
+    if not nombre:
+        return
+    ruta = os.path.join(_carpeta_certificados(), os.path.basename(nombre))
+    if os.path.isfile(ruta):
+        os.remove(ruta)
+
+
+# --- Tabla ---
+def _contexto_certificados(nuevo=False, editando=None, datos=None, errores=None):
+    lista = (Certificado.query.filter_by(id_egresado=current_user.id_egresado)
+             .order_by(Certificado.fecha_emision.is_(None), Certificado.fecha_emision.desc())
+             .all())
+    return dict(
+        certificados=lista,
+        categorias=CATEGORIAS_CERT,
+        niveles=NIVELES_IDIOMA,
+        etiqueta_cat=dict(CATEGORIAS_CERT),
+        etiqueta_nivel=dict(NIVELES_IDIOMA),
+        nuevo=nuevo,
+        editando=editando,
+        datos=datos or {},
+        errores=errores or [],
+    )
+
+
+def _tabla_certificados(**kwargs):
+    return render_template('egresado/_tabla_certificados.html', **_contexto_certificados(**kwargs))
+
+
+def _validar_certificado(form, archivo):
+    errores = []
+    nombre = form.get('nombre', '').strip()
+    institucion = form.get('institucion_emisora', '').strip()
+    categoria = form.get('categoria', '')
+    nivel = form.get('nivel_idioma') or None
+    url = form.get('url_credencial', '').strip() or None
+    fecha_texto = form.get('fecha_emision', '')
+    fecha = _fecha(fecha_texto)
+
+    if not nombre:
+        errores.append('Escribe el nombre del certificado.')
+    if not institucion:
+        errores.append('Escribe la institución emisora.')
+    if categoria not in dict(CATEGORIAS_CERT):
+        errores.append('La categoría no es válida.')
+    if categoria == 'idioma':
+        if nivel and nivel not in dict(NIVELES_IDIOMA):
+            errores.append('El nivel de idioma no es válido.')
+    else:
+        nivel = None        # la base solo permite nivel si la categoría es idioma
+    if fecha_texto and not fecha:
+        errores.append('La fecha no es válida.')
+    if url and not url.lower().startswith(('http://', 'https://')):
+        errores.append('La URL debe empezar con http:// o https://')
+    if archivo and archivo.filename:
+        error_pdf = _revisar_pdf(archivo)
+        if error_pdf:
+            errores.append(error_pdf)
+
+    valores = dict(
+        nombre=nombre[:255],
+        institucion_emisora=institucion[:200],
+        categoria=categoria,
+        nivel_idioma=nivel,
+        fecha_emision=fecha,
+        url_credencial=url,
+    )
+    return errores, valores
+
+
+def _guardar_certificado(cert=None):
+    archivo = request.files.get('archivo')
+    errores, valores = _validar_certificado(request.form, archivo)
+    if errores:
+        return _tabla_certificados(nuevo=cert is None,
+                                   editando=cert.id_certificado if cert else None,
+                                   datos=request.form.to_dict(), errores=errores)
+
+    if cert is None:
+        cert = Certificado(id_egresado=current_user.id_egresado)
+        db.session.add(cert)
+    for campo, valor in valores.items():
+        setattr(cert, campo, valor)
+
+    pdf_anterior = cert.ruta_archivo
+    if archivo and archivo.filename:
+        cert.ruta_archivo = _guardar_pdf(archivo)       # PDF nuevo (reemplaza al anterior)
+    elif request.form.get('quitar_pdf') == 'on':
+        cert.ruta_archivo = None
+    db.session.commit()
+
+    if pdf_anterior and pdf_anterior != cert.ruta_archivo:
+        _borrar_pdf(pdf_anterior)
+    return _tabla_certificados()
+
 
 @egresado.route('/certificados')
 @login_required
 @solo_egresado
 def certificados():
-    e = Egresado.query.get(current_user.id_egresado)
-    lista = Certificado.query.filter_by(id_egresado=e.id_egresado)\
-                             .order_by(Certificado.fecha_emision.desc()).all()
-    externos = [c for c in lista if c.tipo == 'externo']
-    internos = [c for c in lista if c.tipo == 'interno']
-    return render_template('egresado/certificados.html', externos=externos, internos=internos)
+    return render_template('egresado/certificados.html', **_contexto_certificados())
 
 
-@egresado.route('/certificados/nuevo', methods=['GET', 'POST'])
+@egresado.route('/certificados/tabla')
 @login_required
 @solo_egresado
-def nuevo_certificado():
-    if request.method == 'POST':
-        cert = Certificado(
-            id_egresado         = current_user.id_egresado,
-            nombre              = request.form.get('nombre', '').strip(),
-            institucion_emisora = request.form.get('institucion_emisora', '').strip(),
-            tipo                = request.form.get('tipo', 'externo'),
-            categoria           = request.form.get('categoria', 'curso'),
-            nivel_idioma        = request.form.get('nivel_idioma') or None,
-            fecha_emision       = request.form.get('fecha_emision') or None,
-            url_credencial      = request.form.get('url_credencial', '').strip() or None,
-        )
-        db.session.add(cert)
-        db.session.commit()
-        flash('Certificado registrado correctamente. Puedes ingresar el siguiente.', 'success')
-        return redirect(url_for('egresado.nuevo_certificado'))
+def certificados_tabla():
+    return _tabla_certificados(nuevo=request.args.get('nuevo') == '1',
+                               editando=request.args.get('editar', type=int))
 
-    return render_template('egresado/nuevo_certificado.html')
+
+@egresado.route('/certificados/guardar', methods=['POST'])
+@login_required
+@solo_egresado
+def guardar_certificado_nuevo():
+    return _guardar_certificado()
+
+
+@egresado.route('/certificados/<int:id>/guardar', methods=['POST'])
+@login_required
+@solo_egresado
+def guardar_certificado(id):
+    cert = Certificado.query.filter_by(id_certificado=id,
+                                       id_egresado=current_user.id_egresado).first_or_404()
+    return _guardar_certificado(cert)
+
 
 @egresado.route('/certificados/<int:id>/eliminar', methods=['POST'])
 @login_required
 @solo_egresado
 def eliminar_certificado(id):
-    cert = Certificado.query.get_or_404(id)
-    if cert.id_egresado != current_user.id_egresado:
-        flash('No tienes permiso.', 'danger')
-        return redirect(url_for('egresado.certificados'))
+    cert = Certificado.query.filter_by(id_certificado=id,
+                                       id_egresado=current_user.id_egresado).first_or_404()
+    pdf = cert.ruta_archivo
     db.session.delete(cert)
     db.session.commit()
-    flash('Certificado eliminado.', 'info')
-    return redirect(url_for('egresado.certificados'))
+    _borrar_pdf(pdf)
+    return _tabla_certificados()
+
+
+@egresado.route('/certificados/<int:id>/archivo')
+@login_required
+def archivo_certificado(id):
+    """Entrega el PDF solo a su dueño o al personal."""
+    cert = db.session.get(Certificado, id)
+    if cert is None or not cert.ruta_archivo:
+        abort(404)
+    if not (current_user.es_personal or cert.id_egresado == current_user.id_egresado):
+        abort(403)
+    return send_from_directory(_carpeta_certificados(), os.path.basename(cert.ruta_archivo),
+                               mimetype='application/pdf',
+                               download_name=f'certificado-{cert.id_certificado}.pdf')
 
 
 # ============================================

@@ -50,16 +50,13 @@
         </div>
     </div>
 
-        <!-- Filtro por país -->
+    <!-- Filtro: Nacionales / Internacionales (pulsar el activo lo quita) -->
     <div class="d-flex flex-wrap gap-2 mb-3">
-        <a href="{{ url_for('public.ofertas') }}"
-           class="btn btn-sm {{ 'btn-primary' if not pais_activo else 'btn-outline-primary' }}">
-            Todas <span class="badge bg-light text-dark ms-1">{{ total_activas }}</span>
-        </a>
-        {% for p in paises if p.total > 0 %}
-        <a href="{{ url_for('public.ofertas', pais=p.nombre) }}"
-           class="btn btn-sm {{ 'btn-primary' if pais_activo == p.nombre else 'btn-outline-primary' }}">
-            {{ p.nombre }} <span class="badge bg-light text-dark ms-1">{{ p.total }}</span>
+        {% for a in ambitos %}
+        {% set activo = ambito_activo == a.clave %}
+        <a href="{{ url_for('public.ofertas') if activo else url_for('public.ofertas', ambito=a.clave) }}"
+           class="btn btn-sm {{ 'btn-primary' if activo else 'btn-outline-primary' }}">
+            {{ a.nombre }} <span class="badge bg-light text-dark ms-1">{{ a.total }}</span>
         </a>
         {% endfor %}
     </div>

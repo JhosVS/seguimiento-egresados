@@ -1,0 +1,123 @@
+{# ---------- Fila de formulario (nuevo o edición) ---------- #}
+{% macro fila_form(l, datos, tipos, institucion_defecto, hoy) %}
+    {% set tipo        = datos.tipo            if datos else (l.tipo if l else '') %}
+    {% set grado       = datos.grado_titulo    if datos else (l.grado_titulo if l else '') %}
+    {% set fecha       = datos.fecha_obtencion if datos else (l.fecha_obtencion.isoformat() if l and l.fecha_obtencion else '') %}
+    {% set institucion = datos.institucion     if datos else (l.institucion if l else institucion_defecto) %}
+
+    <tr>
+        <td class="text-muted small">{{ '✎' if l else '+' }}</td>
+        <td>
+            <select name="tipo" form="f-grado" class="form-select form-select-sm" required
+                    onchange="sugerirGrado(this)">
+                <option value="">— Tipo —</option>
+                {% for valor, etiqueta in tipos %}
+                <option value="{{ valor }}" {{ 'selected' if tipo == valor }}>{{ etiqueta }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <input type="text" id="grado-titulo-edicion" name="grado_titulo" form="f-grado"
+                   class="form-control form-control-sm" value="{{ grado }}" maxlength="300" required
+                   placeholder="Ej: INGENIERO DE SISTEMAS Y COMPUTACIÓN">
+        </td>
+        <td>
+            <input type="date" name="fecha_obtencion" form="f-grado" class="form-control form-control-sm"
+                   value="{{ fecha }}" max="{{ hoy }}" required>
+        </td>
+        <td>
+            <input type="text" name="institucion" form="f-grado" class="form-control form-control-sm"
+                   value="{{ institucion }}" maxlength="200" required>
+        </td>
+        <td class="small text-muted">{{ l.fuente if l else '' }}</td>
+        <td class="text-end text-nowrap">
+            <button type="submit" form="f-grado" class="btn btn-sm btn-success" title="Guardar">
+                <i class="bi bi-check-lg"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" title="Cancelar"
+                    hx-get="{{ url_for('egresado.formacion_profesional_tabla') }}">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </td>
+    </tr>
+{% endmacro %}
+
+
+{% if errores %}
+<div class="alert alert-danger py-2 small">
+    <ul class="mb-0 ps-3">
+        {% for err in errores %}<li>{{ err }}</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if nuevo %}
+<form id="f-grado" hx-post="{{ url_for('egresado.guardar_grado_nuevo') }}"></form>
+{% elif editando %}
+<form id="f-grado" hx-post="{{ url_for('egresado.guardar_grado', id=editando) }}"></form>
+{% endif %}
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:40px">#</th>
+                    <th>Tipo</th>
+                    <th>Grado o título</th>
+                    <th>Fecha del diploma</th>
+                    <th>Institución</th>
+                    <th>Fuente</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            {% if nuevo %}
+            <tbody class="table-primary">
+                {{ fila_form(none, datos, tipos, institucion_defecto, hoy) }}
+            </tbody>
+            {% endif %}
+
+            {% for l in logros %}
+                {% if editando == l.id_formacion %}
+                <tbody class="table-primary">
+                    {{ fila_form(l, datos, tipos, institucion_defecto, hoy) }}
+                </tbody>
+                {% else %}
+                <tbody>
+                    <tr>
+                        <td class="text-muted small">{{ loop.index }}</td>
+                        <td class="small"><span class="badge bg-primary">{{ etiqueta_tipo[l.tipo] }}</span></td>
+                        <td class="fw-semibold small">{{ l.grado_titulo }}</td>
+                        <td class="small">{{ l.fecha_obtencion.strftime('%d/%m/%Y') if l.fecha_obtencion else '—' }}</td>
+                        <td class="small">{{ l.institucion }}</td>
+                        <td><span class="badge bg-secondary">{{ l.fuente }}</span></td>
+                        <td class="text-end text-nowrap">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Editar"
+                                    hx-get="{{ url_for('egresado.formacion_profesional_tabla', editar=l.id_formacion) }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar"
+                                    hx-post="{{ url_for('egresado.eliminar_logro', id=l.id_formacion) }}"
+                                    hx-confirm="¿Eliminar este registro?">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+                {% endif %}
+            {% endfor %}
+
+            {% if not logros and not nuevo %}
+            <tbody>
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-5">
+                        <i class="bi bi-mortarboard fs-1 d-block"></i>
+                        No tienes grados o títulos registrados. Pulsa <strong>Nuevo</strong> para agregar el primero.
+                    </td>
+                </tr>
+            </tbody>
+            {% endif %}
+        </table>
+    </div>
+</div>

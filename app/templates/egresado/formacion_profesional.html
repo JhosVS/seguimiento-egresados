@@ -1,73 +1,45 @@
-<!-- app/templates/egresado/formacion_profesional.html -->
 {% extends "base.html" %}
 {% block titulo %}Formación profesional{% endblock %}
+
 {% block contenido %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0"><i class="bi bi-award me-2"></i>Formación profesional</h4>
-    <a href="{{ url_for('egresado.nuevo_grado_titulo') }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg me-1"></i>Agregar grado o título
-    </a>
+    <button type="button" class="btn btn-primary btn-sm"
+            hx-get="{{ url_for('egresado.formacion_profesional_tabla', nuevo=1) }}"
+            hx-target="#zona-formacion" hx-swap="innerHTML">
+        <i class="bi bi-plus-lg me-1"></i>Nuevo
+    </button>
 </div>
 
-<div class="alert alert-info py-2 small mb-4">
+<div class="alert alert-info py-2 small mb-3">
     <i class="bi bi-info-circle me-1"></i>
     Actualmente el registro es manual: consulta tu constancia en el portal oficial de SUNEDU
     y copia los datos aquí. <strong>Próximamente se implementará la consulta automática mediante la API de SUNEDU.</strong>
-</div>
-
-<div class="card">
-    <div class="card-body p-0">
-        {% if logros %}
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>#</th>
-                        <th>Graduado</th>
-                        <th>DNI</th>
-                        <th>Grado o título</th>
-                        <th>Fecha del diploma</th>
-                        <th>Institución</th>
-                        <th>Fuente</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                {% for logro in logros %}
-                <tr>
-                    <td class="text-muted small">{{ loop.index }}</td>
-                    <td class="small">{{ e.nombre_completo }}</td>
-                    <td class="small">{{ e.dni }}</td>
-                    <td class="small">{{ logro.grado_titulo }}</td>
-                    <td class="small">
-                        {{ logro.fecha_obtencion.strftime('%d/%m/%Y') if logro.fecha_obtencion else '—' }}
-                    </td>
-                    <td class="small">{{ logro.institucion }}</td>
-                    <td>
-                        <span class="badge bg-secondary">{{ logro.fuente }}</span>
-                    </td>
-                    <td>
-                        <form method="POST"
-                              action="{{ url_for('egresado.eliminar_logro', id=logro.id_formacion) }}"
-                              onsubmit="return confirm('¿Eliminar este registro?')">
-                            <button class="btn btn-sm btn-outline-danger">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center text-muted py-5">
-            <i class="bi bi-mortarboard fs-1"></i>
-            <p class="mt-2">No tienes grados o títulos registrados.</p>
-            <p class="small">Haz clic en <strong>"Agregar grado o título"</strong>
-               para registrar tu información académica.</p>
-        </div>
-        {% endif %}
+    <div class="mt-2">
+        <a href="https://enlinea.sunedu.gob.pe/" target="_blank" rel="noopener noreferrer"
+           class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-box-arrow-up-right me-1"></i>Consultar en SUNEDU en Línea
+        </a>
     </div>
 </div>
+
+<p class="small text-muted mb-3">
+    <strong>Graduado:</strong> {{ e.nombre_completo }} &nbsp;·&nbsp; <strong>DNI:</strong> {{ e.dni }}
+</p>
+
+<div id="zona-formacion" hx-target="#zona-formacion" hx-swap="innerHTML">
+    {% include 'egresado/_tabla_formacion.html' %}
+</div>
+
+<script>
+const nombrePrograma = {{ nombre_programa|tojson }};
+
+// Al elegir "Bachiller" con el campo vacío, se sugiere "BACHILLER EN <tu programa>"
+function sugerirGrado(selectTipo) {
+    const campo = document.getElementById('grado-titulo-edicion');
+    if (campo && !campo.value.trim() && selectTipo.value === 'bachiller' && nombrePrograma) {
+        campo.value = 'BACHILLER EN ' + nombrePrograma.toUpperCase();
+    }
+}
+</script>
 {% endblock %}

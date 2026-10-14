@@ -385,15 +385,14 @@ class Certificado(db.Model):
     id_certificado = db.Column(db.Integer, primary_key=True)
     id_egresado = db.Column(db.Integer, db.ForeignKey('egresados.id_egresado', ondelete='CASCADE'),
                             nullable=False)
-    nombre = db.Column(db.String(255), nullable=False)
+    nombre = db.Column(db.String(255), nullable=False)          # en pantalla: "Certificado"
     institucion_emisora = db.Column(db.String(200), nullable=False)
-    tipo = db.Column(db.Enum('externo', 'interno'), nullable=False, default='externo')
-    categoria = db.Column(db.Enum('curso', 'capacitacion', 'diplomado', 'idioma', 'otro'),
+    categoria = db.Column(db.Enum('curso', 'capacitacion', 'taller', 'idioma', 'otro'),
                           nullable=False, default='curso')
     nivel_idioma = db.Column(db.Enum('basico', 'intermedio', 'avanzado'))   # solo si categoria = 'idioma'
     fecha_emision = db.Column(db.Date)
     url_credencial = db.Column(db.Text)
-    ruta_archivo = db.Column(db.String(500))
+    ruta_archivo = db.Column(db.String(500))     # nombre del PDF (carpeta privada instance/certificados/)
     creado_en = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
 
     egresado = db.relationship('Egresado', back_populates='certificados')

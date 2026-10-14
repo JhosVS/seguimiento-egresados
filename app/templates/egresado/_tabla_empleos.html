@@ -1,0 +1,163 @@
+{# ---------- Fila de formulario (nuevo o edición). Los campos se unen al form "f-empleo" ---------- #}
+{% macro fila_form(emp, datos, sectores, tipos_contrato) %}
+    {% set cargo     = datos.cargo           if datos else (emp.cargo if emp else '') %}
+    {% set empresa   = datos.empresa_nombre  if datos else (emp.empresa_nombre if emp else '') %}
+    {% set sector    = datos.id_sector       if datos else (emp.id_sector if emp else '') %}
+    {% set contrato  = datos.tipo_contrato   if datos else (emp.tipo_contrato if emp else '') %}
+    {% set inicio    = datos.fecha_inicio    if datos else (emp.fecha_inicio.isoformat() if emp else '') %}
+    {% set fin       = datos.fecha_fin       if datos else (emp.fecha_fin.isoformat() if emp and emp.fecha_fin else '') %}
+    {% set actual    = (datos.es_actual == 'on') if datos else (emp is not none and emp.fecha_fin is none) %}
+    {% set funciones = datos.funciones       if datos else ((emp.funciones or '') if emp else '') %}
+
+    <tr>
+        <td class="text-muted small">{{ '✎' if emp else '+' }}</td>
+        <td>
+            <input type="text" name="cargo" form="f-empleo" class="form-control form-control-sm"
+                   value="{{ cargo }}" maxlength="150" required autofocus placeholder="Cargo">
+        </td>
+        <td>
+            <input type="text" name="empresa_nombre" form="f-empleo" class="form-control form-control-sm"
+                   value="{{ empresa }}" maxlength="200" required placeholder="Empresa o institución">
+        </td>
+        <td>
+            <select name="id_sector" form="f-empleo" class="form-select form-select-sm">
+                <option value="">—</option>
+                {% for s in sectores %}
+                <option value="{{ s.id_sector }}" {{ 'selected' if s.id_sector|string == sector|string }}>{{ s.nombre }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <select name="tipo_contrato" form="f-empleo" class="form-select form-select-sm">
+                <option value="">—</option>
+                {% for tc in tipos_contrato %}
+                <option value="{{ tc }}" {{ 'selected' if contrato == tc }}>{{ tc }}</option>
+                {% endfor %}
+                {# Valor antiguo que ya tenía el empleo: se conserva para no perderlo #}
+                {% if contrato and contrato not in tipos_contrato %}
+                <option value="{{ contrato }}" selected>{{ contrato }}</option>
+                {% endif %}
+            </select>
+        </td>
+        <td>
+            <input type="date" name="fecha_inicio" form="f-empleo" class="form-control form-control-sm"
+                   value="{{ inicio }}" required>
+        </td>
+        <td>
+            <input type="date" id="fecha-fin-edicion" name="fecha_fin" form="f-empleo"
+                   class="form-control form-control-sm" value="{{ fin }}" {{ 'disabled' if actual }}>
+            <div class="form-check mt-1">
+                <input type="checkbox" name="es_actual" id="es-actual-edicion" form="f-empleo"
+                       class="form-check-input" {{ 'checked' if actual }}
+                       onchange="document.getElementById('fecha-fin-edicion').disabled = this.checked">
+                <label class="form-check-label small" for="es-actual-edicion">Actual</label>
+            </div>
+        </td>
+        <td class="text-end text-nowrap">
+            <button type="submit" form="f-empleo" class="btn btn-sm btn-success" title="Guardar">
+                <i class="bi bi-check-lg"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" title="Cancelar"
+                    hx-get="{{ url_for('egresado.empleos_tabla') }}">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </td>
+    </tr>
+    <tr>
+        <td></td>
+        <td colspan="7">
+            <textarea name="funciones" form="f-empleo" class="form-control form-control-sm" rows="2"
+                      placeholder="Funciones o logros (opcional)">{{ funciones }}</textarea>
+        </td>
+    </tr>
+{% endmacro %}
+
+
+{# ---------- Mensajes de error ---------- #}
+{% if errores %}
+<div class="alert alert-danger py-2 small">
+    <ul class="mb-0 ps-3">
+        {% for err in errores %}<li>{{ err }}</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{# ---------- Formulario vacío: los campos de la fila se conectan a él ---------- #}
+{% if nuevo %}
+<form id="f-empleo" hx-post="{{ url_for('egresado.guardar_empleo_nuevo') }}"></form>
+{% elif editando %}
+<form id="f-empleo" hx-post="{{ url_for('egresado.guardar_empleo', id=editando) }}"></form>
+{% endif %}
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:40px">#</th>
+                    <th>Cargo</th>
+                    <th>Empresa / Institución</th>
+                    <th>Sector</th>
+                    <th>Tipo de contrato</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            {% if nuevo %}
+            <tbody class="table-primary">
+                {{ fila_form(none, datos, sectores, tipos_contrato) }}
+            </tbody>
+            {% endif %}
+
+            {% for emp in empleos %}
+                {% if editando == emp.id_empleo %}
+                <tbody class="table-primary">
+                    {{ fila_form(emp, datos, sectores, tipos_contrato) }}
+                </tbody>
+                {% else %}
+                <tbody>
+                    <tr>
+                        <td class="text-muted small">{{ loop.index }}</td>
+                        <td class="fw-semibold small">{{ emp.cargo }}</td>
+                        <td class="small">{{ emp.empresa_nombre }}</td>
+                        <td class="small text-muted">{{ emp.sector.nombre if emp.sector else '—' }}</td>
+                        <td class="small">{{ emp.tipo_contrato or '—' }}</td>
+                        <td class="small">{{ emp.fecha_inicio.strftime('%d/%m/%Y') if emp.fecha_inicio else '—' }}</td>
+                        <td class="small">
+                            {% if emp.es_actual %}
+                                <span class="badge bg-success">Actual</span>
+                            {% else %}
+                                {{ emp.fecha_fin.strftime('%d/%m/%Y') }}
+                            {% endif %}
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Editar"
+                                    hx-get="{{ url_for('egresado.empleos_tabla', editar=emp.id_empleo) }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar"
+                                    hx-post="{{ url_for('egresado.eliminar_empleo', id=emp.id_empleo) }}"
+                                    hx-confirm="¿Eliminar este registro?">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+                {% endif %}
+            {% endfor %}
+
+            {% if not empleos and not nuevo %}
+            <tbody>
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-5">
+                        <i class="bi bi-briefcase fs-1 d-block"></i>
+                        Aún no registras experiencia laboral. Pulsa <strong>Nuevo</strong> para agregar la primera.
+                    </td>
+                </tr>
+            </tbody>
+            {% endif %}
+        </table>
+    </div>
+</div>
