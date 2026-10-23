@@ -4,6 +4,9 @@
 
 {% block contenido %}
 {% set badge_colors = {'doctorado': 'bg-danger', 'maestria': 'bg-warning text-dark', 'titulado': 'bg-success', 'bachiller': 'bg-info text-dark'} %}
+{% set etiqueta_tipo = {'bachiller': 'Bachiller', 'titulado': 'Título profesional', 'maestria': 'Maestría', 'doctorado': 'Doctorado'} %}
+{% set etiqueta_cat = {'especializacion': 'Especialización', 'curso': 'Curso', 'capacitacion': 'Capacitación', 'taller': 'Taller', 'idioma': 'Idioma', 'otro': 'Otro'} %}
+{% set etiqueta_nivel = {'basico': 'Básico', 'intermedio': 'Intermedio', 'avanzado': 'Avanzado'} %}
 
 <style>
     /* Estilo compacto exclusivo para el contenido de las tablas */
@@ -49,7 +52,7 @@
 
                     <div class="mb-2">
                         <span class="badge rounded-pill {{ badge_colors.get(e.nivel_maximo, 'bg-secondary') }}">
-                            {{ e.nivel_maximo|capitalize }}
+                            {{ etiqueta_tipo.get(e.nivel_maximo, 'Egresado') }}
                         </span>
                     </div>
 
@@ -133,7 +136,7 @@
                     <td>{{ e.distrito or '—' }}, {{ e.provincia or '—' }} ({{ e.region or '—' }})</td>
                 </tr>
                 <tr>
-                    <td class="text-muted ps-3">Correo inst.:</td>
+                    <td class="text-muted ps-3">Correo de acceso:</td>
                     <td class="text-break">{{ e.usuario.correo if e.usuario else '—' }}</td>
                     <td class="text-muted">Correo pers.:</td>
                     <td class="text-break">{{ e.correo_personal or '—' }}</td>
@@ -194,25 +197,19 @@
                     <th class="border-0">Grado o Título</th>
                     <th class="border-0">Institución</th>
                     <th class="border-0">Fecha</th>
-                    <th class="border-0">Fuente</th>
                 </tr>
             </thead>
             <tbody>
-                {% for t in e.formaciones %}
+                {% for t in e.formaciones_ordenadas %}
                 <tr>
                     <td class="ps-3">
                         <span class="badge {{ badge_colors.get(t.tipo, 'bg-info text-dark') }}" style="font-size: 0.7rem;">
-                            {{ t.tipo|capitalize }}
+                            {{ etiqueta_tipo.get(t.tipo, t.tipo) }}
                         </span>
                     </td>
                     <td class="fw-semibold">{{ t.grado_titulo }}</td>
                     <td>{{ t.institucion }}</td>
                     <td>{{ t.fecha_obtencion.strftime('%d/%m/%Y') if t.fecha_obtencion else '—' }}</td>
-                    <td>
-                        <span class="badge {{ 'bg-primary' if t.fuente == 'SUNEDU' else 'bg-secondary' }}" style="font-size: 0.7rem;">
-                            {{ t.fuente }}
-                        </span>
-                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -235,23 +232,23 @@
                 <tr>
                     <th class="ps-3 border-0">Cargo</th>
                     <th class="border-0">Empresa</th>
-                    <th class="border-0">Tipo Contrato</th>
+                    <th class="border-0">Tipo de contrato</th>
                     <th class="border-0">Inicio</th>
                     <th class="border-0">Fin</th>
                 </tr>
             </thead>
             <tbody>
-                {% for emp in e.empleos %}
+                {% for emp in e.empleos_ordenados %}
                 <tr>
                     <td class="ps-3 fw-semibold">{{ emp.cargo }}</td>
                     <td>{{ emp.empresa_nombre }}</td>
                     <td>{{ emp.tipo_contrato or '—' }}</td>
-                    <td>{{ emp.fecha_inicio.strftime('%m/%Y') if emp.fecha_inicio else '—' }}</td>
+                    <td>{{ emp.fecha_inicio.strftime('%d/%m/%Y') if emp.fecha_inicio else '—' }}</td>
                     <td>
                         {% if emp.es_actual %}
-                            <span class="badge bg-success" style="font-size: 0.7rem;">Presente</span>
+                            <span class="badge bg-success" style="font-size: 0.7rem;">Actual</span>
                         {% else %}
-                            {{ emp.fecha_fin.strftime('%m/%Y') if emp.fecha_fin else '—' }}
+                            {{ emp.fecha_fin.strftime('%d/%m/%Y') if emp.fecha_fin else '—' }}
                         {% endif %}
                     </td>
                 </tr>
@@ -264,35 +261,48 @@
     {% endif %}
 </div>
 
-<!-- 5. CERTIFICADOS -->
+<!-- 5. FORMACIÓN COMPLEMENTARIA -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white py-2 border-0 fw-bold text-uppercase text-secondary small">
-        5. Certificados y Especializaciones
+        5. Formación Complementaria
     </div>
     {% if e.certificados %}
     <div class="table-responsive">
         <table class="table table-hover mb-0 align-middle tabla-compacta">
             <thead class="bg-light text-muted">
                 <tr>
-                    <th class="ps-3 border-0">Nombre</th>
+                    <th class="ps-3 border-0">Certificado</th>
                     <th class="border-0">Institución</th>
-                    <th class="border-0">Tipo</th>
                     <th class="border-0">Categoría</th>
                     <th class="border-0">Fecha</th>
+                    <th class="border-0">Documentos</th>
                 </tr>
             </thead>
             <tbody>
-                {% for c in e.certificados %}
+                {% for c in e.certificados_ordenados %}
                 <tr>
                     <td class="ps-3 fw-semibold">{{ c.nombre }}</td>
                     <td>{{ c.institucion_emisora }}</td>
                     <td>
-                        <span class="badge {{ 'bg-info text-dark' if c.tipo == 'interno' else 'bg-secondary' }}" style="font-size: 0.7rem;">
-                            {{ c.tipo|capitalize }}
-                        </span>
+                        {{ etiqueta_cat.get(c.categoria, c.categoria) }}
+                        {% if c.nivel_idioma %}<span class="text-muted">· {{ etiqueta_nivel.get(c.nivel_idioma, c.nivel_idioma) }}</span>{% endif %}
                     </td>
-                    <td>{{ c.categoria|capitalize }}</td>
-                    <td>{{ c.fecha_emision.strftime('%m/%Y') if c.fecha_emision else '—' }}</td>
+                    <td>{{ c.fecha_emision.strftime('%d/%m/%Y') if c.fecha_emision else '—' }}</td>
+                    <td class="text-nowrap">
+                        {% if c.ruta_archivo %}
+                        <a href="{{ url_for('egresado.archivo_certificado', id=c.id_certificado) }}" target="_blank"
+                           class="btn btn-sm btn-outline-primary py-0 px-1" title="Ver PDF">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </a>
+                        {% endif %}
+                        {% if c.url_credencial and c.url_credencial.lower().startswith(('http://', 'https://')) %}
+                        <a href="{{ c.url_credencial }}" target="_blank" rel="noopener noreferrer"
+                           class="btn btn-sm btn-outline-primary py-0 px-1" title="Ver credencial en línea">
+                            <i class="bi bi-link-45deg"></i>
+                        </a>
+                        {% endif %}
+                        {% if not c.ruta_archivo and not c.url_credencial %}<span class="text-muted">—</span>{% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

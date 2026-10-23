@@ -38,6 +38,13 @@
                 </div>
                 {% endfor %}
 
+                {% if modo_pruebas %}
+                <div class="alert alert-warning py-2 small">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    <strong>Modo de pruebas:</strong> la verificación con la API de la UNDAC está desactivada.
+                </div>
+                {% endif %}
+
                 <div class="alert alert-success py-2 mb-4 small">
                     <i class="bi bi-check-circle-fill me-1"></i>
                     <strong>Código verificado: {{ codigo }}.</strong>
@@ -97,9 +104,9 @@
                                 laborales para:
                             </p>
                             <ul class="small mb-2">
-                                <li>mantenerte un vinculo con el programa de estudios y con tu universidad;</li>
-                                <li>conocer tu trayectoria profesional y aportar a la mejora de la formación de las futuras generaciones;</li>
-                                <li>ofrecerte oportunidades laborales y espacios para compartir tu experiencia.</li>
+                                <li>Mantenerte en contacto con la universidad y tu programa de estudios.</li>
+                                <li>Conocer tu trayectoria profesional y, mediante tus experiencias contribuir con la mejora de la formación de las futuras generaciones.</li>
+                                <li>Conectarte con oportunidades laborales y ofrecerte canales estratégicos para potenciar tu perfil profesional.</li>
                             </ul>
                             <p class="small mb-3">
                                 Puedes <strong>modificar tus datos y corregirlos</strong>.

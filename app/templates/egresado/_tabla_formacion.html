@@ -29,7 +29,6 @@
             <input type="text" name="institucion" form="f-grado" class="form-control form-control-sm"
                    value="{{ institucion }}" maxlength="200" required>
         </td>
-        <td class="small text-muted">{{ l.fuente if l else '' }}</td>
         <td class="text-end text-nowrap">
             <button type="submit" form="f-grado" class="btn btn-sm btn-success" title="Guardar">
                 <i class="bi bi-check-lg"></i>
@@ -67,7 +66,6 @@
                     <th>Grado o título</th>
                     <th>Fecha del diploma</th>
                     <th>Institución</th>
-                    <th>Fuente</th>
                     <th></th>
                 </tr>
             </thead>
@@ -91,7 +89,6 @@
                         <td class="fw-semibold small">{{ l.grado_titulo }}</td>
                         <td class="small">{{ l.fecha_obtencion.strftime('%d/%m/%Y') if l.fecha_obtencion else '—' }}</td>
                         <td class="small">{{ l.institucion }}</td>
-                        <td><span class="badge bg-secondary">{{ l.fuente }}</span></td>
                         <td class="text-end text-nowrap">
                             <button type="button" class="btn btn-sm btn-outline-secondary" title="Editar"
                                     hx-get="{{ url_for('egresado.formacion_profesional_tabla', editar=l.id_formacion) }}">

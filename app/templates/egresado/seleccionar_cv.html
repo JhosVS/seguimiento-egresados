@@ -1,45 +1,83 @@
-<!--app/templates/egresados/seleccionar_cv-->
 {% extends "base.html" %}
 {% block titulo %}Generar CV{% endblock %}
 
 {% block contenido %}
 <div class="container py-3" style="max-width: 800px;">
 
-    <!-- Encabezado simple -->
     <div class="mb-4 pb-2 border-bottom">
         <h4 class="mb-0 fw-bold"><i class="bi bi-file-earmark-pdf me-2 text-primary"></i>Generar mi CV</h4>
     </div>
 
-    <!-- Alerta informativa -->
-    <div class="alert alert-info py-2 small mb-4">
-        <i class="bi bi-info-circle me-1"></i>
-        Elige qué empleos, formación y certificados quieres incluir en este CV. Se recomienda seleccionar lo más relevante (2 a 3 elementos por sección). Tus habilidades, intereses e idiomas se incluyen automáticamente.
-    </div>
-
     <form method="POST" action="{{ url_for('egresado.generar_cv_final') }}">
 
-        <!-- Encabezado del CV -->
-        <div class="card shadow-sm mb-4">
+        <!-- Tipo de CV -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <input type="radio" class="btn-check" name="tipo_cv" id="tipo-general" value="general" checked
+                    autocomplete="off">
+                <label class="btn btn-outline-primary w-100 text-start p-3 h-100" for="tipo-general">
+                    <i class="bi bi-palette me-1"></i><strong>CV general</strong><br>
+                    <span class="small">Con diseño. Para tenerlo a mano, compartirlo o presentarlo en persona.</span>
+                </label>
+            </div>
+            <div class="col-md-6">
+                <input type="radio" class="btn-check" name="tipo_cv" id="tipo-especifico" value="especifico"
+                    autocomplete="off">
+                <label class="btn btn-outline-primary w-100 text-start p-3 h-100" for="tipo-especifico">
+                    <i class="bi bi-file-text me-1"></i><strong>CV para un puesto</strong><br>
+                    <span class="small">Solo texto, sin diseño. Para postular a una vacante concreta.</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="alert alert-info py-2 small mb-4">
+            <i class="bi bi-info-circle me-1"></i>
+            Elige qué quieres incluir. Se recomienda lo más relevante (2 a 3 elementos por sección).
+        </div>
+
+        <!-- Encabezado: CV general -->
+        <div id="bloque-general" class="card shadow-sm mb-4">
             <div class="card-header bg-light fw-bold py-2">
                 <i class="bi bi-person-badge me-2 text-primary"></i>Encabezado del CV
             </div>
             <div class="card-body">
                 <div class="mb-3">
                     <label class="form-label small fw-semibold">Título / Ocupación</label>
-                    <input type="text" name="titulo_cv" class="form-control"
-                           value="{{ e.titulo_cv or '' }}"
-                           placeholder="Ej: Ingeniero de Sistemas y Computación">
-                    <div class="form-text">Se mostrará debajo de tu nombre en el CV.</div>
+                    <input type="text" name="titulo_cv" class="form-control" maxlength="150"
+                        value="{{ e.titulo_cv or '' }}" placeholder="Ej: Ingeniero de Sistemas y Computación">
+                    <div class="form-text">Se mostrará debajo de tu nombre. Solo cambia este CV, no tu perfil.</div>
                 </div>
                 <div>
                     <label class="form-label small fw-semibold">Descripción profesional</label>
                     <textarea name="perfil_profesional" class="form-control" rows="3"
-                              placeholder="Breve descripción sobre ti, tu experiencia o tus objetivos profesionales...">{{ e.perfil_profesional or '' }}</textarea>
+                        placeholder="Breve descripción sobre ti, tu experiencia o tus objetivos profesionales...">{{ e.perfil_profesional or '' }}</textarea>
                 </div>
             </div>
         </div>
 
-        <!-- Experiencia Laboral -->
+        <!-- Encabezado: CV para un puesto -->
+        <div id="bloque-especifico" class="card shadow-sm mb-4 d-none">
+            <div class="card-header bg-light fw-bold py-2">
+                <i class="bi bi-bullseye me-2 text-primary"></i>Puesto al que postulas
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Puesto <span class="text-danger">*</span></label>
+                    <input type="text" name="puesto" class="form-control" maxlength="150" required
+                        placeholder="Ej: Desarrollador Backend">
+                    <div class="form-text">Aparece debajo de tu nombre, tal como lo pide la vacante.</div>
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold">Resumen para este puesto</label>
+                    <textarea name="resumen" class="form-control" rows="3"
+                        placeholder="Resalta lo que te hace buen candidato para esta vacante...">{{ e.perfil_profesional or '' }}</textarea>
+                    <div class="form-text">Parte de tu descripción actual: adáptala a la vacante. No cambia tu perfil.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Experiencia laboral -->
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-light fw-bold py-2">
                 <i class="bi bi-briefcase me-2 text-primary"></i>Experiencia laboral
@@ -48,24 +86,25 @@
                 {% if empleos %}
                 {% for emp in empleos %}
                 <div class="form-check mb-2">
-                    <input class="form-check-input" type="checkbox" name="empleos"
-                           value="{{ emp.id_empleo }}" id="emp-{{ emp.id_empleo }}">
+                    <input class="form-check-input" type="checkbox" name="empleos" value="{{ emp.id_empleo }}"
+                        id="emp-{{ emp.id_empleo }}">
                     <label class="form-check-label small" for="emp-{{ emp.id_empleo }}">
-                        <strong>{{ emp.cargo }}</strong> — {{ emp.empresa.nombre if emp.empresa else '—' }}
+                        <strong>{{ emp.cargo }}</strong> — {{ emp.empresa_nombre }}
                         <span class="text-muted">
                             ({{ emp.fecha_inicio.strftime('%m/%Y') if emp.fecha_inicio else '—' }} –
-                            {{ 'Presente' if emp.es_actual else (emp.fecha_fin.strftime('%m/%Y') if emp.fecha_fin else '—') }})
+                            {{ 'Actualidad' if emp.es_actual else (emp.fecha_fin.strftime('%m/%Y') if emp.fecha_fin else
+                            '—') }})
                         </span>
                     </label>
                 </div>
                 {% endfor %}
                 {% else %}
-                <p class="text-muted small mb-0">No tienes empleos registrados.</p>
+                <p class="text-muted small mb-0">No tienes experiencia laboral registrada.</p>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Formación Profesional -->
+        <!-- Formación profesional -->
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-light fw-bold py-2">
                 <i class="bi bi-mortarboard me-2 text-primary"></i>Formación profesional
@@ -74,9 +113,9 @@
                 {% if logros %}
                 {% for l in logros %}
                 <div class="form-check mb-2">
-                    <input class="form-check-input" type="checkbox" name="logros"
-                           value="{{ l.id_formacion if l.id_formacion is defined else l.id }}" id="logro-{{ loop.index }}">
-                    <label class="form-check-label small" for="logro-{{ loop.index }}">
+                    <input class="form-check-input" type="checkbox" name="logros" value="{{ l.id_formacion }}"
+                        id="logro-{{ l.id_formacion }}">
+                    <label class="form-check-label small" for="logro-{{ l.id_formacion }}">
                         <strong>{{ l.grado_titulo }}</strong>
                         <span class="text-muted">— {{ l.institucion }}
                             ({{ l.fecha_obtencion.strftime('%d/%m/%Y') if l.fecha_obtencion else '—' }})</span>
@@ -89,35 +128,50 @@
             </div>
         </div>
 
-        <!-- Certificados y Capacitaciones -->
+        <!-- Formación complementaria -->
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-light fw-bold py-2">
-                <i class="bi bi-patch-check me-2 text-primary"></i>Certificados y capacitaciones
+                <i class="bi bi-patch-check me-2 text-primary"></i>Formación complementaria
             </div>
             <div class="card-body">
                 {% if certificados %}
                 {% for c in certificados %}
                 <div class="form-check mb-2">
-                    <input class="form-check-input" type="checkbox" name="certificados"
-                        value="{{ c.id_certificado }}" id="cert-{{ c.id_certificado }}">
+                    <input class="form-check-input" type="checkbox" name="certificados" value="{{ c.id_certificado }}"
+                        id="cert-{{ c.id_certificado }}">
                     <label class="form-check-label small" for="cert-{{ c.id_certificado }}">
-                        <strong>
-                            {{ c.nombre }}
-                            {% set nivel = c.nivel_idioma if c.nivel_idioma is defined and c.nivel_idioma else (c.nivel if c.nivel is defined and c.nivel else None) %}
-                            {% if nivel %} — {{ nivel|capitalize }}{% endif %}
-                        </strong>
+                        <strong>{{ c.nombre }}</strong>
                         <span class="text-muted">— {{ c.institucion_emisora }}
                             ({{ c.fecha_emision.strftime('%m/%Y') if c.fecha_emision else '—' }})</span>
                     </label>
                 </div>
                 {% endfor %}
                 {% else %}
-                <p class="text-muted small mb-0">No tienes certificados registrados.</p>
+                <p class="text-muted small mb-0">No tienes formación complementaria registrada.</p>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Botón de Acción Principal -->
+        <!-- Habilidades (solo CV para un puesto; en el general van todas) -->
+        <div id="bloque-habilidades" class="card shadow-sm mb-4 d-none">
+            <div class="card-header bg-light fw-bold py-2">
+                <i class="bi bi-lightning-charge me-2 text-primary"></i>Habilidades
+            </div>
+            <div class="card-body">
+                {% if habilidades %}
+                {% for h in habilidades %}
+                <div class="form-check form-check-inline mb-2">
+                    <input class="form-check-input" type="checkbox" name="habilidades" value="{{ h.id_habilidad }}"
+                        id="hab-{{ h.id_habilidad }}">
+                    <label class="form-check-label small" for="hab-{{ h.id_habilidad }}">{{ h.nombre }}</label>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="text-muted small mb-0">No tienes habilidades registradas.</p>
+                {% endif %}
+            </div>
+        </div>
+
         <div class="d-flex justify-content-end mb-4">
             <button type="submit" class="btn btn-primary px-4">
                 <i class="bi bi-file-earmark-pdf me-1"></i>Generar y descargar CV
@@ -125,4 +179,21 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Muestra solo los campos del tipo de CV elegido; los ocultos se desactivan para no estorbar al enviar
+    function actualizarModo() {
+        const especifico = document.getElementById('tipo-especifico').checked;
+        [['bloque-general', !especifico], ['bloque-especifico', especifico], ['bloque-habilidades', especifico]]
+            .forEach(([id, visible]) => {
+                const bloque = document.getElementById(id);
+                bloque.classList.toggle('d-none', !visible);
+                bloque.querySelectorAll('input, textarea').forEach(i => i.disabled = !visible);
+            });
+    }
+    document.querySelectorAll('input[name="tipo_cv"]').forEach(r => r.addEventListener('change', actualizarModo));
+    actualizarModo();
+</script>
 {% endblock %}

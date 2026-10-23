@@ -1,7 +1,9 @@
 # app/egresado/routes.py
 import os
+import re
+import unicodedata
 import uuid
-from flask import send_from_directory, current_app, abort
+from flask import send_from_directory, current_app, abort, send_file
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from functools import wraps
@@ -18,6 +20,7 @@ from app.models import (
     Encuesta, EncuestaEnvio, Pregunta, Respuesta, RespuestaOpcion
 )
 from datetime import datetime
+from app.utils.cv_pdf import generar_cv, generar_cv_simple
 
 # ============================================
 # UTILIDADES Y DECORADORES
@@ -130,7 +133,9 @@ def _fecha(valor):
 def _contexto_empleos(nuevo=False, editando=None, datos=None, errores=None):
     """Todo lo que necesita la tabla para dibujarse."""
     lista = (Empleo.query.filter_by(id_egresado=current_user.id_egresado)
-             .order_by(Empleo.fecha_fin.is_(None).desc(), Empleo.fecha_inicio.desc())
+             .order_by(Empleo.fecha_fin.is_(None).desc(),   # primero los empleos actuales
+                       Empleo.fecha_inicio.desc(),          # luego del más nuevo al más antiguo
+                       Empleo.id_empleo.desc())             # desempate si empiezan el mismo día
              .all())
     return dict(
         empleos=lista,
@@ -255,13 +260,18 @@ def eliminar_empleo(id):
 # ============================================
 TIPOS_GRADO = [('bachiller', 'Bachiller'), ('titulado', 'Título profesional'),
                ('maestria', 'Maestría'), ('doctorado', 'Doctorado')]
+# Orden de los grupos en la tabla: del nivel más alto al más bajo
+ORDEN_TIPO = {tipo: i for i, (tipo, _) in enumerate(reversed(TIPOS_GRADO))}
 INSTITUCION_UNDAC = 'Universidad Nacional Daniel Alcides Carrión'
 
 
 def _contexto_formacion(nuevo=False, editando=None, datos=None, errores=None):
     e = db.session.get(Egresado, current_user.id_egresado)
-    logros = (FormacionAcademica.query.filter_by(id_egresado=e.id_egresado)
-              .order_by(FormacionAcademica.fecha_obtencion).all())
+    logros = FormacionAcademica.query.filter_by(id_egresado=e.id_egresado).all()
+    # Agrupados por tipo y, dentro de cada tipo, del más nuevo al más antiguo
+    logros.sort(key=lambda l: (ORDEN_TIPO.get(l.tipo, 99),
+                               -l.fecha_obtencion.toordinal(),
+                               -l.id_formacion))
     return dict(
         e=e,
         logros=logros,
@@ -367,8 +377,10 @@ def eliminar_logro(id):
 # FORMACIÓN COMPLEMENTARIA (antes "Certificados")
 # Se registra y edita en la misma tabla, con PDF opcional.
 # ============================================
-CATEGORIAS_CERT = [('curso', 'Curso'), ('capacitacion', 'Capacitación'), ('taller', 'Taller'),
+CATEGORIAS_CERT = [('especializacion', 'Especialización'), ('curso', 'Curso'),
+                   ('capacitacion', 'Capacitación'), ('taller', 'Taller'),
                    ('idioma', 'Idioma'), ('otro', 'Otro')]
+ORDEN_CATEGORIA = {valor: i for i, (valor, _) in enumerate(CATEGORIAS_CERT)}
 NIVELES_IDIOMA = [('basico', 'Básico'), ('intermedio', 'Intermedio'), ('avanzado', 'Avanzado')]
 MAX_PDF_BYTES = 5 * 1024 * 1024     # 5 MB
 
@@ -411,9 +423,12 @@ def _borrar_pdf(nombre):
 
 # --- Tabla ---
 def _contexto_certificados(nuevo=False, editando=None, datos=None, errores=None):
-    lista = (Certificado.query.filter_by(id_egresado=current_user.id_egresado)
-             .order_by(Certificado.fecha_emision.is_(None), Certificado.fecha_emision.desc())
-             .all())
+    lista = Certificado.query.filter_by(id_egresado=current_user.id_egresado).all()
+    # Agrupados por categoría y, dentro de cada una, del más reciente al más antiguo
+    # (los que no tienen fecha van al final de su grupo)
+    lista.sort(key=lambda c: (ORDEN_CATEGORIA.get(c.categoria, 99),
+                              -(c.fecha_emision.toordinal() if c.fecha_emision else 0),
+                              -c.id_certificado))
     return dict(
         certificados=lista,
         categorias=CATEGORIAS_CERT,
@@ -624,49 +639,64 @@ def ofertas():
 # GENERAR CV
 # ==========================================
 
+# helpers
+def _ids(nombre):
+    """Números que llegan de las casillas (ignora cualquier otra cosa)."""
+    return [int(v) for v in request.form.getlist(nombre) if v.isdigit()]
+
+def _nombre_archivo(*partes):
+    texto = '_'.join(p for p in partes if p)
+    texto = unicodedata.normalize('NFKD', texto).encode('ascii', 'ignore').decode()
+    texto = re.sub(r'[^A-Za-z0-9]+', '_', texto).strip('_')
+    return (texto[:80] or 'CV') + '.pdf'
+
 @egresado.route('/mi-cv')
 @login_required
 @solo_egresado
 def seleccionar_cv():
-    e              = Egresado.query.get(current_user.id_egresado)
-    empleos_l      = Empleo.query.filter_by(id_egresado=e.id_egresado)\
-                            .order_by(Empleo.fecha_inicio.desc()).all()
-    logros_l       = FormacionAcademica.query.filter_by(id_egresado=e.id_egresado)\
-                                            .order_by(FormacionAcademica.fecha_obtencion.desc()).all()
-    certificados_l = Certificado.query.filter_by(id_egresado=e.id_egresado)\
-                                     .order_by(Certificado.fecha_emision.desc()).all()
-    return render_template('egresado/seleccionar_cv.html',
-        e=e, empleos=empleos_l, logros=logros_l, certificados=certificados_l)
+    e = db.session.get(Egresado, current_user.id_egresado)
+    certificados = [c for c in _contexto_certificados()['certificados'] if c.categoria != 'idioma']
+    return render_template('egresado/seleccionar_cv.html', e=e,
+                           empleos=_contexto_empleos()['empleos'],
+                           logros=_contexto_formacion()['logros'],
+                           certificados=certificados,
+                           habilidades=[h for h in e.habilidades if h.tipo == 'habilidad'])
 
 
 @egresado.route('/mi-cv/generar', methods=['POST'])
 @login_required
 @solo_egresado
 def generar_cv_final():
-    from app.utils.cv_pdf import generar_cv
-    e = Egresado.query.get(current_user.id_egresado)
+    e = db.session.get(Egresado, current_user.id_egresado)
 
-    if hasattr(e, 'titulo_cv'):
-        e.titulo_cv = request.form.get('titulo_cv', '').strip() or None
-    if hasattr(e, 'perfil_profesional'):
-        e.perfil_profesional = request.form.get('perfil_profesional', '').strip() or None
-    db.session.commit()
+    # Solo entran registros del propio egresado: se filtra la lista ya cargada, no los números recibidos
+    ids_emp, ids_logro, ids_cert = set(_ids('empleos')), set(_ids('logros')), set(_ids('certificados'))
+    empleos = [x for x in _contexto_empleos()['empleos'] if x.id_empleo in ids_emp]
+    logros = [x for x in _contexto_formacion()['logros'] if x.id_formacion in ids_logro]
+    todos = _contexto_certificados()['certificados']
+    certificados = [c for c in todos if c.categoria != 'idioma' and c.id_certificado in ids_cert]
+    idiomas = [c for c in todos if c.categoria == 'idioma']      # los idiomas van siempre
 
-    ids_empleos      = request.form.getlist('empleos')
-    ids_logros       = request.form.getlist('logros')
-    ids_certificados = request.form.getlist('certificados')
+    if request.form.get('tipo_cv') == 'especifico':
+        puesto = request.form.get('puesto', '').strip()
+        if not puesto:
+            flash('Escribe el puesto al que postulas.', 'danger')
+            return redirect(url_for('egresado.seleccionar_cv'))
+        ids_hab = set(_ids('habilidades'))
+        habilidades = [h for h in e.habilidades if h.tipo == 'habilidad' and h.id_habilidad in ids_hab]
+        buf = generar_cv_simple(e, puesto[:150], request.form.get('resumen', ''),
+                                empleos, logros, certificados, habilidades, idiomas)
+        archivo = _nombre_archivo('CV', e.apellido_paterno, e.nombres, puesto)
+    else:
+        titulo = request.form.get('titulo_cv', '').strip()[:150] or None
+        perfil = request.form.get('perfil_profesional', '').strip()
+        habilidades = [h for h in e.habilidades if h.tipo == 'habilidad']
+        intereses = [h for h in e.habilidades if h.tipo == 'interes']
+        buf = generar_cv(e, empleos, logros, certificados, habilidades, intereses, idiomas,
+                         titulo=titulo, perfil=perfil)
+        archivo = _nombre_archivo('CV', e.apellido_paterno, e.nombres)
 
-    empleos_sel      = Empleo.query.filter(Empleo.id_empleo.in_(ids_empleos)).all() if ids_empleos else []
-    logros_sel       = FormacionAcademica.query.filter(FormacionAcademica.id_formacion.in_(ids_logros)).all() if ids_logros else []
-    certificados_sel = Certificado.query.filter(Certificado.id_certificado.in_(ids_certificados)).all() if ids_certificados else []
-
-    habilidades_l = Habilidad.query.filter_by(id_egresado=e.id_egresado, tipo='habilidad').all()
-    intereses_l   = Habilidad.query.filter_by(id_egresado=e.id_egresado, tipo='interes').all()
-    idiomas_l     = Certificado.query.filter_by(id_egresado=e.id_egresado, categoria='idioma').all()
-
-    pdf = generar_cv(e, empleos_sel, logros_sel, certificados_sel, habilidades_l, intereses_l, idiomas_l)
-    nombre_archivo = f"CV_{e.apellido_paterno}_{e.nombres.split()[0]}.pdf"
-    return send_file(pdf, mimetype='application/pdf', as_attachment=True, download_name=nombre_archivo)
+    return send_file(buf, mimetype='application/pdf', as_attachment=True, download_name=archivo)
 
 # ==========================================
 # ENCUESTAS

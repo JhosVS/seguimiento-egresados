@@ -1,4 +1,7 @@
 # app/auth/routes.py
+import os
+from flask import render_template, redirect, url_for, flash, request, session, current_app
+
 import hashlib
 import re
 import secrets
@@ -62,12 +65,29 @@ def _next_seguro():
         return destino
     return None
 
+def _modo_pruebas():
+    """Se activa con MODO_PRUEBAS=1 en el .env. Solo para sesiones de prueba."""
+    return os.getenv('MODO_PRUEBAS') == '1'
+
+
+def _datos_de_prueba(dni):
+    """Lo que devolvería la API, inventado: todos quedan en la misma currícula de prueba."""
+    return {
+        'Dni': dni,
+        'Rol': 'EG',
+        'Programa facultad': sorted(PROGRAMAS_PERMITIDOS)[0],
+        'Curricula': os.getenv('CURRICULA_PRUEBAS', '17A4SI'),
+    }
 
 def _validar_api(codigo, dni):
     """
     Consulta la API y comprueba que la persona pueda registrarse.
     Devuelve (datos, None) si puede, o (None, (mensaje, categoria)) si no.
     """
+    if _modo_pruebas():
+        current_app.logger.warning('MODO_PRUEBAS activo: no se consultó la API de la UNDAC.')
+        return _datos_de_prueba(dni), None
+
     datos = consultar_api_undac(codigo)
     if not datos or datos.get('Dni') != dni:
         # Mismo mensaje si el código no existe o el DNI no coincide
@@ -193,7 +213,7 @@ def verificar():
             session['reg_temp'] = {'codigo': codigo, 'dni': dni}   # solo lo mínimo
             return redirect(url_for('auth.registro'))
 
-    return render_template('auth/verificar.html', form=form)
+    return render_template('auth/verificar.html', form=form, modo_pruebas=_modo_pruebas())
 
 
 @auth.route('/registro', methods=['GET', 'POST'], strict_slashes=False)
@@ -257,7 +277,7 @@ def registro():
             flash('¡Cuenta creada! Inicia sesión con el correo que registraste.', 'success')
             return redirect(url_for('auth.login'))
 
-    return render_template('auth/registro.html', form=form, codigo=temp['codigo'])
+    return render_template('auth/registro.html', form=form, codigo=temp['codigo'], modo_pruebas=_modo_pruebas())
 
 
 # ------------------------------------------------------------

@@ -14,6 +14,10 @@ from flask_login import UserMixin
 
 from .extensions import db
 
+# Orden de los grupos en las tablas (mismo criterio que ve el egresado)
+ORDEN_TIPO_GRADO = {'doctorado': 0, 'maestria': 1, 'titulado': 2, 'bachiller': 3}
+ORDEN_CATEGORIA_CERT = {'especializacion': 0, 'curso': 1, 'capacitacion': 2,
+                        'taller': 3, 'idioma': 4, 'otro': 5}
 
 # ============================================================
 # 1. ROLES (solo del personal)
@@ -245,6 +249,27 @@ class Egresado(db.Model):
             return 'bachiller'
         return 'egresado'
 
+    @property
+    def empleos_ordenados(self):
+        """Actuales primero; luego del más nuevo al más antiguo (por fecha de inicio)."""
+        return sorted(self.empleos, key=lambda x: (x.fecha_fin is not None,
+                                                   -x.fecha_inicio.toordinal(),
+                                                   -x.id_empleo))
+
+    @property
+    def formaciones_ordenadas(self):
+        """Agrupadas por tipo (nivel más alto primero); dentro de cada tipo, más nuevo primero."""
+        return sorted(self.formaciones, key=lambda x: (ORDEN_TIPO_GRADO.get(x.tipo, 99),
+                                                       -x.fecha_obtencion.toordinal(),
+                                                       -x.id_formacion))
+
+    @property
+    def certificados_ordenados(self):
+        """Agrupados por categoría; dentro de cada una, más reciente primero (sin fecha al final)."""
+        return sorted(self.certificados, key=lambda c: (
+            ORDEN_CATEGORIA_CERT.get(c.categoria, 99),
+            -(c.fecha_emision.toordinal() if c.fecha_emision else 0),
+            -c.id_certificado))
 
 # ============================================================
 # 7. USUARIOS (login)
@@ -387,7 +412,7 @@ class Certificado(db.Model):
                             nullable=False)
     nombre = db.Column(db.String(255), nullable=False)          # en pantalla: "Certificado"
     institucion_emisora = db.Column(db.String(200), nullable=False)
-    categoria = db.Column(db.Enum('curso', 'capacitacion', 'taller', 'idioma', 'otro'),
+    categoria = db.Column(db.Enum('curso', 'capacitacion', 'taller', 'idioma', 'otro', 'especializacion'),
                           nullable=False, default='curso')
     nivel_idioma = db.Column(db.Enum('basico', 'intermedio', 'avanzado'))   # solo si categoria = 'idioma'
     fecha_emision = db.Column(db.Date)

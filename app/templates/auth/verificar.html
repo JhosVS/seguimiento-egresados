@@ -29,7 +29,14 @@
                     <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
                 </div>
                 {% endfor %}
-
+            
+                {% if modo_pruebas %}
+                <div class="alert alert-warning py-2 small">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    <strong>Modo de pruebas:</strong> la verificación con la API de la UNDAC está desactivada.
+                </div>
+                {% endif %}
+            
                 <p class="text-muted small mb-3">
                     Ingresa tu código universitario y DNI para verificar tu información.
                 </p>
