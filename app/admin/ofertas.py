@@ -12,6 +12,7 @@ from app.auth.decorators import requiere_rol
 from app.extensions import db
 from app.models import OfertaLaboral, Sector
 from app.utils.historial import registrar
+from app.utils.helpers import borrar_archivo
 
 ROLES = ('administrador', 'coordinador')
 EXT_IMAGEN = {'png', 'jpg', 'jpeg', 'webp'}
@@ -143,16 +144,24 @@ def editar_oferta(id):
                 setattr(oferta, campo, valor)
             oferta.activa = bool(request.form.get('activa'))
 
+            anterior = oferta.ruta_imagen
+            nueva = None
             imagen = request.files.get('imagen')
+            
             if imagen and imagen.filename:
                 nueva = _guardar_imagen(imagen)
                 if nueva:
                     oferta.ruta_imagen = nueva
 
-            # Historial auditoria
+            # Historial auditoría
             registrar('actualizacion', 'ofertas', f'Actualizó la oferta "{oferta.titulo}"')
 
             db.session.commit()
+            
+            # Borrar la imagen anterior solo después del commit exitoso
+            if nueva and anterior:
+                borrar_archivo(anterior)
+
             flash('Oferta actualizada.', 'success')
             return redirect(url_for('admin.ofertas'))
 
@@ -171,6 +180,27 @@ def toggle_oferta(id):
 
     db.session.commit()
     flash(f'Oferta {"activada" if oferta.activa else "desactivada"}.', 'info')
+    return redirect(url_for('admin.ofertas',
+        estado=request.form.get('estado', 'activa'),
+        pagina=request.form.get('pagina', 1)))
+
+
+
+
+
+@admin.route('/admin/ofertas/<int:id>/eliminar', methods=['POST'])
+@requiere_rol(*ROLES)
+def eliminar_oferta(id):
+    oferta = db.get_or_404(OfertaLaboral, id)
+    if oferta.fuente != 'manual':
+        flash('Solo se pueden eliminar las ofertas publicadas manualmente. Las automáticas se retiran solas al vencer.', 'warning')
+    else:
+        registrar('eliminacion', 'ofertas', f'Eliminó la oferta "{oferta.titulo}" ({oferta.empresa_nombre})')
+        imagen = oferta.ruta_imagen
+        db.session.delete(oferta)
+        db.session.commit()
+        borrar_archivo(imagen)
+        flash('Oferta eliminada.', 'info')
     return redirect(url_for('admin.ofertas',
         estado=request.form.get('estado', 'activa'),
         pagina=request.form.get('pagina', 1)))

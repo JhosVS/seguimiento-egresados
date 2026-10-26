@@ -98,16 +98,22 @@ def editar_perfil():
         periodo = request.form.get('periodo_egreso', '').strip().upper()
         e.periodo_egreso = periodo[:10] or None
 
+        anterior = e.foto
+        nueva = None
         foto = request.files.get('foto')
         if foto and foto.filename:
-            from app.utils.helpers import guardar_archivo
-            ruta = guardar_archivo(foto, 'fotos')
-            if ruta:
-                e.foto = ruta
+            from app.utils.helpers import guardar_archivo, borrar_archivo
+            nueva = guardar_archivo(foto, 'fotos')
+            if nueva:
+                e.foto = nueva
             else:
                 flash('Formato de foto no permitido. Usa PNG, JPG o WEBP.', 'warning')
 
         db.session.commit()
+        
+        if nueva and anterior:
+            borrar_archivo(anterior)
+
         flash('Perfil actualizado correctamente.', 'success')
         return redirect(url_for('egresado.perfil'))
 

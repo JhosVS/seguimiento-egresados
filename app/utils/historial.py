@@ -7,7 +7,7 @@ from app.extensions import db
 from app.models import Historial
 
 LIMA = timezone(timedelta(hours=-5))      # Perú no cambia de hora: así no depende del servidor
-DIAS_CONSERVACION = 40
+DIAS_CONSERVACION = 90
 
 
 def _ahora():
@@ -37,7 +37,7 @@ def depurar_historial():
     limite = _ahora() - timedelta(days=DIAS_CONSERVACION)
     Historial.query.filter(Historial.fecha < limite).delete()
 
-    exceso = Historial.query.count() - 3000
+    exceso = Historial.query.count() - 5000
     if exceso > 0:
         ids = [i for (i,) in db.session.query(Historial.id_historial)
                .order_by(Historial.fecha.asc()).limit(exceso).all()]

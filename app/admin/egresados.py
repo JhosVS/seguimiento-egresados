@@ -170,10 +170,11 @@ def programas_por_facultad():
     return jsonify([{'id': p.id_programa, 'nombre': p.nombre} for p in programas])
 
 
+# Exportar cv alternativo del egresado
 @admin.route('/admin/egresados/<int:id>/pdf')
 @requiere_rol('administrador', 'coordinador')
 def exportar_egresado_pdf(id):
-    from app.utils.cv_pdf import generar_cv
+    from app.utils.cv_pdf import generar_cv_simple
     e = db.get_or_404(Egresado, id)
     if not _en_alcance(current_user.personal, e):
         flash('No tienes permiso para ver este egresado.', 'danger')
@@ -185,9 +186,21 @@ def exportar_egresado_pdf(id):
     certificados = [c for c in e.certificados_ordenados if c.categoria != 'idioma']
     idiomas = [c for c in e.certificados_ordenados if c.categoria == 'idioma']
     habilidades = [h for h in e.habilidades if h.tipo == 'habilidad']
-    intereses = [h for h in e.habilidades if h.tipo == 'interes']
 
-    pdf = generar_cv(e, e.empleos_ordenados, e.formaciones_ordenadas, certificados, habilidades, intereses, idiomas)
+    # Definir puesto y resumen por defecto tomando los datos del perfil del egresado
+    puesto = e.titulo_cv or 'Profesional'
+    resumen = e.perfil_profesional or ''
+
+    pdf = generar_cv_simple(
+        egresado=e,
+        puesto=puesto,
+        resumen=resumen,
+        empleos=e.empleos_ordenados,
+        logros=e.formaciones_ordenadas,
+        certificados=certificados,
+        habilidades=habilidades,
+        idiomas=idiomas
+    )
 
     nombre = f'Perfil_{e.apellido_paterno}_{e.nombres.split()[0]}.pdf'
     return send_file(pdf, mimetype='application/pdf', as_attachment=True, download_name=nombre)

@@ -16,6 +16,7 @@ def create_app(config_class=Config):
 
     # Ruta para servir los archivos subidos desde la carpeta instance/uploads
     @app.route('/uploads/<path:filename>')
+    @app.route('/static/uploads/<path:filename>')       # direcciones antiguas de las plantillas
     def uploaded_file(filename):
         return send_from_directory(os.path.join(app.instance_path, 'uploads'), filename)
 
@@ -52,7 +53,7 @@ def create_app(config_class=Config):
     # Tareas programadas
     from app.utils.api_empleos import sincronizar_empleos_externos
 
-    @scheduler.task('cron', id='sincronizar_empleos_job', day_of_week='sun', hour=17, minute=38)
+    @scheduler.task('cron', id='sincronizar_empleos_job', day_of_week='sun', hour=1, minute=0)
     def tarea_sincronizacion_empleos():
         with app.app_context():
             print("⏰ [SCHEDULER] Iniciando sincronización semanal de empleos...")

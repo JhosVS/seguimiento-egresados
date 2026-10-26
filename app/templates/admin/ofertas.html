@@ -74,6 +74,17 @@
                         {% endif %}
                         <a href="{{ url_for('admin.editar_oferta', id=o.id_oferta) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
 
+                        {% if o.fuente == 'manual' %}
+                        <form method="POST" action="{{ url_for('admin.eliminar_oferta', id=o.id_oferta) }}"
+                            onsubmit="return confirm('¿Eliminar esta oferta? No se puede deshacer.')">
+                            <input type="hidden" name="estado" value="{{ estado }}">
+                            <input type="hidden" name="pagina" value="{{ pagina }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+
                         <form method="POST" action="{{ url_for('admin.toggle_oferta', id=o.id_oferta) }}" class="d-inline">
                             <input type="hidden" name="estado" value="{{ estado }}">
                             <input type="hidden" name="pagina" value="{{ pagina or 1 }}">

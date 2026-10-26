@@ -22,7 +22,7 @@ LIMITE_PLAN = 200                       # consultas por mes del plan
 MARGEN = 20                             # colchón por si algo falla
 MAX_MENSUAL = LIMITE_PLAN - MARGEN      # tope real: 180
 VIGENCIA_DIAS = 21                      # cuánto dura una oferta tras verla (semanal + colchón)
-MAX_OFERTAS = 600                       # Un limite de oferta en la db
+MAX_OFERTAS = 600                      # Un limite de oferta en la db
 
 # Contador local (archivo en la carpeta instance/)
 ARCHIVO_USO = os.path.abspath(
@@ -118,17 +118,24 @@ def _limpiar_url(raw_url):
     return raw_url.split('?utm_')[0].split('&utm_')[0]
 
 def _depurar_ofertas(hoy, maximo=MAX_OFERTAS):
-    """Si hay más de `maximo` ofertas, borra las automáticas ya vencidas (nunca las activas ni las manuales)."""
+    """Se ejecuta al terminar cada sincronización. Nunca toca las ofertas manuales.
+    1) Borra las automáticas vencidas (las que dejaron de aparecer en la búsqueda).
+    2) Si aun así hay más de `maximo` ofertas, borra las automáticas más antiguas."""
+    borradas = OfertaLaboral.query.filter(
+        OfertaLaboral.fuente == 'automatico', OfertaLaboral.fecha_vencimiento < hoy
+    ).delete(synchronize_session=False)
+
     exceso = OfertaLaboral.query.count() - maximo
-    if exceso <= 0:
-        return 0
-    ids = [i for (i,) in db.session.query(OfertaLaboral.id_oferta)
-           .filter(OfertaLaboral.fuente == 'automatico', OfertaLaboral.fecha_vencimiento < hoy)
-           .order_by(OfertaLaboral.fecha_vencimiento.asc()).limit(exceso).all()]
-    if ids:
-        OfertaLaboral.query.filter(OfertaLaboral.id_oferta.in_(ids)).delete(synchronize_session=False)
-        db.session.commit()
-    return len(ids)
+    if exceso > 0:
+        ids = [i for (i,) in db.session.query(OfertaLaboral.id_oferta)
+               .filter(OfertaLaboral.fuente == 'automatico')
+               .order_by(OfertaLaboral.fecha_publicacion.asc(), OfertaLaboral.id_oferta.asc())
+               .limit(exceso).all()]
+        if ids:
+            borradas += OfertaLaboral.query.filter(
+                OfertaLaboral.id_oferta.in_(ids)).delete(synchronize_session=False)
+    db.session.commit()
+    return borradas
 
 # ============================================================
 # SINCRONIZACIÓN
