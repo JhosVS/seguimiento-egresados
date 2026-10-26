@@ -1,0 +1,139 @@
+{# Tarjeta de indicador clave (KPI) #}
+{% macro kpi(titulo, valor, detalle, icono, color) %}
+<div class="col-sm-6 col-xl-3">
+    <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+        <div class="card-body p-4 d-flex flex-column justify-content-between">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <span class="bg-{{ color }}-subtle text-{{ color }} rounded-3 p-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                    <i class="bi bi-{{ icono }} fs-4"></i>
+                </span>
+            </div>
+            <div>
+                <span class="d-block text-muted text-uppercase fw-semibold mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">{{ titulo }}</span>
+                <h2 class="fs-2 fw-bold text-dark mb-1">{{ valor }}</h2>
+                <p class="text-secondary small mb-0 text-truncate">{{ detalle }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{# Lista de barras de progreso dinámicas #}
+{% macro barras(items, base, colores) %}
+{% for nombre, n in items %}
+{% set pct = (n / base * 100) if base else 0 %}
+<div class="mb-3">
+    <div class="d-flex justify-content-between mb-1">
+        <span class="fw-medium text-dark">{{ nombre }}</span>
+        <span class="text-muted small">{{ n }} ({{ pct | round(1) }}%)</span>
+    </div>
+    <div class="progress" style="height: 8px;">
+        <div class="progress-bar bg-{{ colores[loop.index0 % colores | length] }}" style="width: {{ pct }}%;"></div>
+    </div>
+</div>
+{% else %}
+<p class="text-muted small mb-0">Sin datos todavía.</p>
+{% endfor %}
+{% endmacro %}
+
+{% if datos.total == 0 %}
+<!-- Estado vacío cuando no hay registros -->
+<div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body text-center text-muted py-5">
+        <i class="bi bi-funnel fs-1 d-block mb-2 text-secondary"></i>
+        <p class="mb-0">No hay egresados con estos filtros.</p>
+    </div>
+</div>
+{% else %}
+
+<!-- Fila de Indicadores (KPIs) -->
+<div class="row g-4 mb-4">
+    {{ kpi('Egresados registrados', datos.total, 'Masculino (' ~ datos.varones ~ ') | Femenino (' ~ datos.mujeres ~ ')', 'people', 'primary') }}
+    {{ kpi('Tasa de empleabilidad', datos.pct_empleo ~ '%', datos.con_empleo ~ ' de ' ~ datos.total ~ ' con empleo actual', 'briefcase', 'success') }}
+    {{ kpi('Tasa de titulación', datos.pct_titulados ~ '%', datos.titulados ~ ' de ' ~ datos.total ~ ' con título', 'mortarboard', 'warning') }}
+    {{ kpi('Participación en encuestas', datos.pct_participacion ~ '%', datos.participaron ~ ' de ' ~ datos.total ~ ' respondieron alguna', 'clipboard-check', 'info') }}
+</div>
+
+<!-- Fila: Situación laboral y Nivel de titulación -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-3 text-dark">Situación laboral</h6>
+                {{ barras(datos.situacion, datos.total, ['success', 'warning', 'secondary']) }}
+                <p class="text-muted small mb-0 mt-4">"Sin empleo registrado" no significa necesariamente que se encuentren desempleados.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-1 text-dark">Nivel de titulación</h6>
+                <p class="text-muted small mb-3">Egresados que poseen cada grado o título (una persona puede registrar varios). Para evaluar una promoción específica, utilice el filtro de año de egreso.</p>
+                <div style="height: 280px;"><canvas id="chartTitulacion"></canvas></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fila: Sector económico y Empresas -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-3 text-dark">Empleos actuales por sector económico</h6>
+                {% if datos.sectores %}
+                <div style="height: {{ [260, datos.sectores|length * 30 + 40]|max }}px;"><canvas id="chartSectores"></canvas></div>
+                {% else %}
+                <p class="text-muted small mb-0">Aún no hay empleos actuales registrados.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-1 text-dark">Top empresas donde trabajan</h6>
+                <p class="text-muted small mb-3">Egresados agrupados por empresa o institución, considerando todos los empleos registrados.</p>
+                {{ barras(datos.empresas, datos.total, ['primary', 'info']) }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sección: Resumen por Currícula -->
+<div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body p-4">
+        <h6 class="fw-semibold mb-3 text-dark">Por currícula</h6>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr class="text-muted small border-bottom">
+                        <th class="fw-normal pb-3">Currícula</th>
+                        <th class="fw-normal text-end pb-3">Con empleo</th>
+                        <th class="fw-normal text-end pb-3">Egresados</th>
+                        <th class="fw-normal text-end pb-3">Bachilleres</th>
+                        <th class="fw-normal text-end pb-3">Titulados</th>
+                        <th class="fw-normal text-end pb-3">Postgrados</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for nombre, con_empleo, egresados, bachilleres, titulados_c, postgrados in datos.curriculas %}
+                    <tr>
+                        <td class="fw-semibold text-dark">{{ nombre }}</td>
+                        <td class="text-end">{{ con_empleo }}</td>
+                        <td class="text-end">{{ egresados }}</td>
+                        <td class="text-end">{{ bachilleres }}</td>
+                        <td class="text-end">{{ titulados_c }}</td>
+                        <td class="text-end">{{ postgrados }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Datos JSON para inicializar gráficos de Chart.js -->
+<script type="application/json" id="datos-graficos">{{ {'titulacion': datos.titulacion, 'sectores': datos.sectores}|tojson }}</script>
+{% endif %}

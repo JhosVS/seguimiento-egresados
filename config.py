@@ -1,13 +1,13 @@
 # config.py
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 load_dotenv()
 
 class Config:
     # Llave secreta con fallback seguro para desarrollo
     SECRET_KEY = os.getenv('SECRET_KEY')
-    FILTRO_ESTRUCTURA_ACTIVO = False   # True = muestra filtros por facultad/programa
 
     if not SECRET_KEY:
         raise RuntimeError('Falta SECRET_KEY en el archivo .env')
@@ -26,11 +26,11 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Límite de carga de archivos (5 MB)
-    MAX_CONTENT_LENGTH = 5 * 1024 * 1024
+    MAX_CONTENT_LENGTH = 6 * 1024 * 1024    # el PDF se limita a 5 MB en la ruta; el resto es margen
     
     # Ruta absoluta para subida de archivos (evita fallos de rutas relativas)
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'app', 'static', 'uploads')
+    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'instance', 'uploads')
 
     # Configuración de correo
     MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
@@ -39,3 +39,8 @@ class Config:
     MAIL_USERNAME = os.getenv('MAIL_USERNAME')
     MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER')
+
+    # Sesiones: se cierran tras N minutos SIN actividad (cada clic la renueva)
+    PERMANENT_SESSION_LIFETIME = timedelta(minutes=int(os.getenv('SESION_MINUTOS')))
+    SESSION_COOKIE_HTTPONLY = True        # el JavaScript de la página no puede leer la cookie
+    SESSION_COOKIE_SECURE = os.getenv('COOKIE_SEGURA') == '1'   # activar en el servidor con HTTPS

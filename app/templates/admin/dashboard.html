@@ -1,227 +1,137 @@
 {% extends "base.html" %}
-{% block titulo %}Panel de administración{% endblock %}
+{% block titulo %}Tablero de control{% endblock %}
 
 {% block contenido %}
-
-{# Tarjeta de indicador #}
-{% macro kpi(titulo, valor, detalle, icono, color) %}
-<div class="col-sm-6 col-xl-3">
-    <div class="card border shadow-sm rounded-4 h-100">
-        <div class="card-body p-4 d-flex align-items-center gap-3">
-            <span class="bg-{{ color }}-subtle text-{{ color }}-emphasis rounded-3 p-3 fs-4 lh-1">
-                <i class="bi bi-{{ icono }}"></i>
-            </span>
-            <div>
-                <div class="text-muted small">{{ titulo }}</div>
-                <div class="fs-3 fw-bold lh-1 my-1">{{ valor }}</div>
-                <div class="text-muted small">{{ detalle }}</div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endmacro %}
-
-{# Lista de barras de progreso #}
-{% macro barras(items, base, colores) %}
-    {% for nombre, n in items %}
-    {% set pct = (n / base * 100) if base else 0 %}
-    <div class="mb-3">
-        <div class="d-flex justify-content-between mb-1">
-            <span>{{ nombre }}</span>
-            <span class="text-muted">{{ n }} ({{ pct | round(1) }}%)</span>
-        </div>
-        <div class="progress" style="height: 10px;">
-            <div class="progress-bar bg-{{ colores[loop.index0 % colores | length] }}" style="width: {{ pct }}%;"></div>
-        </div>
-    </div>
-    {% else %}
-    <p class="text-muted mb-0">Sin datos todavía.</p>
-    {% endfor %}
-{% endmacro %}
-
-<!-- Encabezado -->
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
     <div>
-        <h4 class="fw-bold mb-1">Panel de administración</h4>
+        <h4 class="fw-bold mb-1">Tablero de control</h4>
         <span class="text-muted">Hola, {{ current_user.personal.nombres }}. Este es el estado del seguimiento de egresados.</span>
     </div>
-    <a href="{{ url_for('admin.informe_pdf', id_facultad=id_facultad, id_programa=id_programa) }}"
-       class="btn btn-outline-secondary">
-        <i class="bi bi-file-pdf me-1"></i>Descargar informe
+    <a class="btn btn-outline-secondary" href="{{ url_for('admin.informe_pdf') }}"
+       onclick="this.href = '{{ url_for('admin.informe_pdf') }}?' + new URLSearchParams(new FormData(document.getElementById('filtros')))">
+        <i class="bi bi-file-pdf me-1"></i>Exportar informe
     </a>
 </div>
 
-{% if facultades %}
-<form method="GET" class="card border shadow-sm rounded-4 mb-4">
+<!-- Filtros: al cambiar uno, todo el tablero se recalcula sin recargar la página -->
+<form id="filtros" class="card border shadow-sm rounded-4 mb-4"
+      hx-get="{{ url_for('admin.dashboard') }}" hx-trigger="change"
+      hx-target="#tablero" hx-swap="innerHTML" hx-push-url="true">
     <div class="card-body p-3 row g-3 align-items-end">
-        <div class="col-md-4">
-            <label class="form-label mb-1">Facultad</label>
-            <select name="id_facultad" class="form-select">
-                <option value="">Todas</option>
-                {% for f in facultades %}
-                <option value="{{ f.id_facultad }}" {{ 'selected' if f.id_facultad == id_facultad }}>{{ f.nombre }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-4">
-            <label class="form-label mb-1">Programa de estudio</label>
-            <select name="id_programa" class="form-select">
+        <div class="col-md-2">
+            <label class="form-label mb-1">Año de egreso</label>
+            <select name="anio_egreso" class="form-select">
                 <option value="">Todos</option>
-                {% for p in programas %}
-                <option value="{{ p.id_programa }}" {{ 'selected' if p.id_programa == id_programa }}>{{ p.nombre }}</option>
-                {% endfor %}
+                {% for a in anios_egreso %}<option value="{{ a }}" {{ 'selected' if f.anio_egreso == a }}>{{ a }}</option>{% endfor %}
             </select>
         </div>
-        <div class="col-md-4">
-            <button type="submit" class="btn btn-primary">Filtrar</button>
-            {% if id_facultad or id_programa %}<a href="{{ url_for('admin.dashboard') }}" class="btn btn-link">Quitar filtro</a>{% endif %}
+        <div class="col-md-2">
+            <label class="form-label mb-1">Situación laboral</label>
+            <select name="situacion" class="form-select">
+                <option value="">Todos</option>
+                <option value="con_empleo" {{ 'selected' if f.situacion == 'con_empleo' }}>Con empleo actual</option>
+                <option value="sin_empleo" {{ 'selected' if f.situacion == 'sin_empleo' }}>Sin empleo actual</option>
+            </select>
         </div>
-    </div>
-</form>
-{% endif %}
-
-<!-- Indicadores -->
-<div class="row g-4 mb-4">
-    {{ kpi('Egresados en la base', total, 'registrados en la base de datos', 'people', 'primary') }}
-    {{ kpi('Con cuenta en el sistema', pct_cuenta ~ '%', con_cuenta ~ ' de ' ~ total ~ ' egresados', 'person-check', 'info') }}
-    {{ kpi('Con empleo actual', pct_empleo ~ '%', con_empleo ~ ' de ' ~ con_cuenta ~ ' con cuenta', 'briefcase', 'success') }}
-    {{ kpi('Titulados', pct_titulados ~ '%', titulados ~ ' de ' ~ total ~ ' egresados', 'mortarboard', 'warning') }}
-</div>
-
-<!-- Situación laboral y nivel académico -->
-<div class="row g-4 mb-4">
-    <div class="col-lg-6">
-        <div class="card border shadow-sm rounded-4 h-100">
-            <div class="card-body p-4">
-                <h6 class="fw-semibold mb-4">Situación laboral</h6>
-                {{ barras(situacion, con_cuenta, ['success', 'warning', 'secondary']) }}
-                <p class="text-muted small mb-0 mt-4">Sobre los egresados con cuenta. "Sin empleo registrado" no significa que estén desempleados.</p>
-            </div>
+        <div class="col-md-2">
+            <label class="form-label mb-1">Currícula</label>
+            <select name="curricula" class="form-select">
+                <option value="">Todas</option>
+                {% for c in curriculas %}<option value="{{ c }}" {{ 'selected' if f.curricula == c }}>{{ c }}</option>{% endfor %}
+            </select>
         </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="card border shadow-sm rounded-4 h-100">
-            <div class="card-body p-4">
-                <h6 class="fw-semibold mb-4">Máximo nivel académico</h6>
-                {{ barras(niveles, total, ['danger', 'primary', 'info', 'warning', 'secondary']) }}
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Sector y currículas -->
-<div class="row g-4 mb-4">
-    <div class="col-lg-7">
-        <div class="card border shadow-sm rounded-4 h-100">
-            <div class="card-body p-4">
-                <h6 class="fw-semibold mb-4">Sector de los empleos actuales</h6>
-                {% if sector_data %}
-                <div style="height: 280px;"><canvas id="chartSectores"></canvas></div>
-                {% else %}
-                <p class="text-muted mb-0">Aún no hay empleos actuales registrados.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-5">
-        <div class="card border shadow-sm rounded-4 h-100">
-            <div class="card-body p-4">
-                <h6 class="fw-semibold mb-3">Por currícula</h6>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead>
-                            <tr class="text-muted small">
-                                <th class="fw-normal">Currícula</th>
-                                <th class="fw-normal text-end">Egresados</th>
-                                <th class="fw-normal text-end">Con cuenta</th>
-                                <th class="fw-normal text-end">Con empleo</th>
-                                <th class="fw-normal text-end">Titulados</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for nombre, egresados, cuenta, empleo, titulados_c in curriculas %}
-                            <tr>
-                                <td class="fw-semibold">{{ nombre }}</td>
-                                <td class="text-end">{{ egresados }}</td>
-                                <td class="text-end">{{ cuenta }}</td>
-                                <td class="text-end">{{ empleo }}</td>
-                                <td class="text-end">{{ titulados_c }}</td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="5" class="text-muted">Sin egresados registrados.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+        <div class="col-md-2">
+            <label class="form-label mb-1">Sector económico</label>
+            <div class="dropdown">
+                <button class="form-select text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                    <span id="etiqueta-sectores">{{ f.sectores|length ~ ' seleccionados' if f.sectores else 'Todos' }}</span>
+                </button>
+                <div class="dropdown-menu p-2" style="max-height: 320px; overflow-y: auto; min-width: 280px;">
+                    {% for s in sectores %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="sector" value="{{ s.id_sector }}"
+                               id="sec-{{ s.id_sector }}" {{ 'checked' if s.id_sector in f.sectores }}>
+                        <label class="form-check-label small" for="sec-{{ s.id_sector }}">{{ s.nombre }}</label>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Para actuar -->
-<div class="row g-4">
-    <div class="col-lg-6">
-        <div class="card border shadow-sm rounded-4 h-100">
-            <div class="card-body p-4">
-                <h6 class="fw-semibold mb-3"><i class="bi bi-person-exclamation text-danger me-2"></i>Registrados sin empleo cargado</h6>
-                <ul class="list-group list-group-flush">
-                    {% for e in sin_empleo %}
-                    <li class="list-group-item px-0">
-                        <div>{{ e.nombre_completo }}</div>
-                        <div class="text-muted small">{{ e.usuario.correo }}</div>
-                    </li>
-                    {% else %}
-                    <li class="list-group-item px-0 text-muted">Todos los egresados con cuenta tienen empleos cargados.</li>
-                    {% endfor %}
-                </ul>
-            </div>
+        <div class="col-md-2">
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary w-100">
+                <i class="bi bi-x-circle me-1"></i>Limpiar
+            </a>
         </div>
     </div>
-    <div class="col-lg-6">
-        <div class="card border shadow-sm rounded-4 h-100">
-            <div class="card-body p-4">
-                <h6 class="fw-semibold mb-3"><i class="bi bi-clock-history text-warning me-2"></i>Ofertas que vencen en 15 días</h6>
-                <ul class="list-group list-group-flush">
-                    {% for o in por_vencer %}
-                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
-                        <div>
-                            <div>{{ o.titulo }}</div>
-                            <div class="text-muted small">{{ o.empresa_nombre }}</div>
-                        </div>
-                        <span class="badge text-bg-warning">{{ o.fecha_vencimiento.strftime('%d/%m/%Y') }}</span>
-                    </li>
-                    {% else %}
-                    <li class="list-group-item px-0 text-muted">No hay ofertas por vencer.</li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-    </div>
-</div>
+</form>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+<div id="tablero">
+    {% include 'admin/_tablero.html' %}
+</div>
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
-const sectorCanvas = document.getElementById('chartSectores');
-if (sectorCanvas) {
-    new Chart(sectorCanvas, {
+Chart.defaults.animation = false;            // sin animaciones: aparecen completos al instante
+Chart.defaults.responsive = true;
+Chart.defaults.maintainAspectRatio = false;
+
+const COLORES_SECTOR = ['#0d6efd', '#198754', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14', '#dc3545'];
+
+function pintar(id, config) {
+    const canvas = document.getElementById(id);
+    if (canvas) new Chart(canvas, config);
+}
+
+function dibujarGraficos() {
+    const fuente = document.getElementById('datos-graficos');
+    if (!fuente) return;                     // sin egresados: no hay gráficos que dibujar
+    const g = JSON.parse(fuente.textContent);
+
+    const t = g.titulacion;
+    pintar('chartTitulacion', {
         type: 'bar',
         data: {
-            labels: {{ sector_labels | tojson }},
-            datasets: [{
-                data: {{ sector_data | tojson }},
-                backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14', '#dc3545'],
-                borderRadius: 6
-            }]
+            labels: t.labels.map((nombre, i) => [nombre, t.datos[i] + ' (' + t.pct[i] + '%)']),
+            datasets: [{ data: t.datos, backgroundColor: t.colores, borderRadius: 6 }]
         },
         options: {
-            responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+
+    pintar('chartSectores', {
+        type: 'bar',
+        data: {
+            labels: g.sectores.map(s => s[0]),
+            datasets: [{ data: g.sectores.map(s => s[1]), backgroundColor: COLORES_SECTOR, borderRadius: 6 }]
+        },
+        options: {
+            indexAxis: 'y',
             plugins: { legend: { display: false } },
             scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } }
         }
     });
 }
+
+// Antes de reemplazar el contenido se sueltan los gráficos viejos; si no, se acumulan y todo se vuelve lento
+document.body.addEventListener('htmx:beforeSwap', e => {
+    if (e.detail.target.id === 'tablero')
+        document.querySelectorAll('#tablero canvas').forEach(c => Chart.getChart(c)?.destroy());
+});
+document.body.addEventListener('htmx:afterSettle', e => {
+    if (e.target.id === 'tablero') requestAnimationFrame(dibujarGraficos);
+});
+
+dibujarGraficos();
+
+// Texto del botón de sectores: "Todos" o "N seleccionados"
+document.querySelectorAll('input[name="sector"]').forEach(c => c.addEventListener('change', () => {
+    const n = document.querySelectorAll('input[name="sector"]:checked').length;
+    document.getElementById('etiqueta-sectores').textContent = n ? n + ' seleccionados' : 'Todos';
+}));
 </script>
 {% endblock %}

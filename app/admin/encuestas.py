@@ -11,9 +11,9 @@ from sqlalchemy.orm import selectinload
 from app.admin import admin
 from app.auth.decorators import requiere_rol
 from app.extensions import db
-from app.models import (Curricula, Egresado, Encuesta, EncuestaEnvio, Facultad, Opcion,
-                        Pregunta, ProgramaEstudio, Respuesta, RespuestaOpcion)
+from app.models import (Curricula, Egresado, Encuesta, EncuestaEnvio, Facultad, Opcion, Pregunta, ProgramaEstudio, Respuesta, RespuestaOpcion)
 from app.utils.helpers import alcance_personal
+from app.utils.historial import registrar
 
 ROLES_VER = ('administrador', 'coordinador', 'docente_responsable')
 TIPOS = ('texto', 'numero', 'si_no', 'opcion_unica', 'opcion_multiple')
@@ -118,6 +118,10 @@ def nueva_encuesta():
                            anio=anio, fecha_inicio=inicio, fecha_fin=fin, estado='borrador',
                            id_creado_por=current_user.id_personal)
             db.session.add(enc)
+
+            # Hostorial auditoria
+            registrar('creacion', 'encuestas', f'Creó la encuesta "{enc.nombre}"')
+
             db.session.commit()
             flash('Encuesta creada. Ahora agrega las preguntas.', 'success')
             return redirect(url_for('admin.detalle_encuesta', id=enc.id_encuesta))
@@ -209,6 +213,10 @@ def publicar_encuesta(id):
         flash('Agrega al menos una pregunta antes de publicar.', 'warning')
         return redirect(url_for('admin.detalle_encuesta', id=id))
     enc.estado = 'publicada'
+
+    # Historial auditoria
+    registrar('actualizacion', 'encuestas', f'Publicó la encuesta "{enc.nombre}"')
+
     db.session.commit()
     flash('Encuesta publicada. Los egresados ya pueden responderla.', 'success')
     return redirect(url_for('admin.detalle_encuesta', id=id))
@@ -219,6 +227,10 @@ def publicar_encuesta(id):
 def cerrar_encuesta(id):
     enc = db.get_or_404(Encuesta, id)
     enc.estado = 'cerrada'
+
+    # Historial auditoria
+    registrar('actualizacion', 'encuestas', f'Cerró la encuesta "{enc.nombre}"')
+
     db.session.commit()
     flash('Encuesta cerrada. Ya no se puede responder.', 'info')
     return redirect(url_for('admin.detalle_encuesta', id=id))
@@ -231,6 +243,10 @@ def eliminar_encuesta(id):
     if EncuestaEnvio.query.filter_by(id_encuesta=id).first():
         flash('No se puede eliminar una encuesta que ya tiene respuestas.', 'danger')
         return redirect(url_for('admin.detalle_encuesta', id=id))
+
+    # Historial auditoria
+    registrar('eliminacion', 'encuestas', f'Eliminó la encuesta "{enc.nombre}"')
+
     db.session.delete(enc)           # preguntas y opciones se borran en cascada
     db.session.commit()
     flash('Encuesta eliminada.', 'info')
@@ -374,5 +390,8 @@ def exportar_encuesta(id):
         f = db.session.get(Facultad, id_facultad)
         sufijo = f'_{f.codigo}' if f and f.codigo else ''
     nombre = f"encuesta_{enc.anio}_{enc.nombre.replace(' ', '_')[:30]}{sufijo}.xlsx"
-    return send_file(mem, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                     as_attachment=True, download_name=nombre)
+
+    # Historial aduditoria
+    registrar('consulta', 'encuestas', f'Exportó a Excel las respuestas de la encuesta "{enc.nombre}"', guardar=True)
+
+    return send_file(mem, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=nombre)

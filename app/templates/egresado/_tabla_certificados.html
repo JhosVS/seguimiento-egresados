@@ -1,3 +1,4 @@
+<!--app/templates/egresado/_tabla_certificados-->
 {# ---------- Fila de formulario (nuevo o edición) ---------- #}
 {% macro fila_form(c, datos, categorias, niveles) %}
     {% set nombre      = datos.nombre              if datos else (c.nombre if c else '') %}
@@ -137,7 +138,7 @@
                         <td class="small">{{ c.fecha_emision.strftime('%d/%m/%Y') if c.fecha_emision else '—' }}</td>
                         <td class="text-nowrap">
                             {% if c.ruta_archivo %}
-                            <a href="{{ url_for('egresado.archivo_certificado', id=c.id_certificado) }}"
+                            <a href="{{ url_for('auth.archivo_certificado', id=c.id_certificado) }}"
                                target="_blank" class="btn btn-sm btn-outline-primary" title="Ver PDF">
                                 <i class="bi bi-file-earmark-pdf"></i>
                             </a>

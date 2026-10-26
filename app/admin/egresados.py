@@ -9,11 +9,11 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.admin import admin
-from app.admin.dashboard import _filtros_activos, _filtros_de_url, _opciones_filtro
 from app.auth.decorators import requiere_rol
 from app.extensions import db
 from app.models import Curricula, Egresado, FormacionAcademica, ProgramaEstudio, Usuario
 from app.utils.helpers import alcance_personal
+from app.utils.historial import registrar
 
 NIVEL_NUM = {'egresado': 0, 'bachiller': 1, 'titulado': 2, 'maestria': 3, 'doctorado': 4}
 
@@ -58,12 +58,6 @@ def _consulta(personal):
          .options(selectinload(Egresado.formaciones)))
     q = _limitar(q, personal)
 
-    id_facultad, id_programa = _filtros_de_url()      # vacíos si el filtro está apagado
-    if id_programa:
-        q = q.filter(ProgramaEstudio.id_programa == id_programa)
-    elif id_facultad:
-        q = q.filter(ProgramaEstudio.id_facultad == id_facultad)
-
     buscar = f.get('buscar', '').strip()
     if buscar:
         like = f'%{buscar}%'
@@ -80,8 +74,6 @@ def _consulta(personal):
         q = q.filter(Egresado.anio_ingreso == f.get('anio_ingreso', type=int))
     if f.get('anio_egreso', type=int):
         q = q.filter(Egresado.anio_egreso == f.get('anio_egreso', type=int))
-    if f.get('letra_periodo'):
-        q = q.filter(Egresado.periodo_egreso.ilike(f'%{f["letra_periodo"]}'))
 
     nivel = f.get('nivel', '')
     if nivel.startswith('solo_') and nivel[5:] in NIVEL_NUM:
@@ -109,16 +101,10 @@ def egresados():
     anios_ing = sorted(r[0] for r in db.session.query(Egresado.anio_ingreso).distinct() if r[0])
     anios_eg = sorted(r[0] for r in db.session.query(Egresado.anio_egreso).distinct() if r[0])
 
-    id_facultad, id_programa = _filtros_de_url()
-    facultades, programas = (_opciones_filtro(personal, id_facultad)
-                             if _filtros_activos() else ([], []))
-
     return render_template('admin/egresados.html',
         egresados=paginado.items, total=paginado.total, paginacion=paginado,
         hay_filtro=bool(filtros), filtros=filtros,
-        curriculas=curriculas, anios_ing=anios_ing, anios_eg=anios_eg,
-        facultades=facultades, programas=programas,
-        id_facultad=id_facultad, id_programa=id_programa)
+        curriculas=curriculas, anios_ing=anios_ing, anios_eg=anios_eg)
 
 
 @admin.route('/admin/egresados/<int:id>')
@@ -127,6 +113,9 @@ def ver_egresado(id):
     if not _en_alcance(current_user.personal, e):
         flash('No tienes permiso para ver este egresado.', 'danger')
         return redirect(url_for('admin.egresados'))
+    
+    registrar('consulta', 'egresados', f'Consultó los datos de {e.nombre_completo}', guardar=True)
+
     return render_template('admin/ver_egresado.html', e=e)
 
 
@@ -139,14 +128,13 @@ def exportar_egresados():
         ('Apellido paterno',     lambda e: e.apellido_paterno),
         ('Apellido materno',     lambda e: e.apellido_materno or ''),
         ('Nombres',              lambda e: e.nombres),
-        ('Correo institucional', lambda e: e.usuario.correo if e.usuario else ''),
+        ('Correo acceso',        lambda e: e.usuario.correo if e.usuario else ''),
         ('Correo personal',      lambda e: e.correo_personal or ''),
         ('Género',               lambda e: {'M': 'Masculino', 'F': 'Femenino'}.get(e.genero, '')),
         ('Currícula',            lambda e: e.curricula.nombre),
         ('Programa',             lambda e: e.programa.nombre),
         ('Facultad',             lambda e: e.facultad.nombre),
-        ('Año de ingreso',       lambda e: e.anio_ingreso or ''),
-        ('Período de egreso',    lambda e: e.periodo_egreso or ''),
+        ('Año de ingreso',       lambda e: e.anio_ingreso or '')
     ]
 
     wb = Workbook()
@@ -166,8 +154,12 @@ def exportar_egresados():
     mem = io.BytesIO()
     wb.save(mem)
     mem.seek(0)
-    return send_file(mem, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                     as_attachment=True, download_name='egresados.xlsx')
+
+    # Historial auditoria
+    filtros = ', '.join(f'{k}={v}' for k, v in request.args.items() if v and k != 'formato')
+    registrar('consulta', 'egresados', f'Exportó a Excel {len(egresados)} egresados' + (f' (filtros: {filtros})' if filtros else ''), guardar=True)
+
+    return send_file(mem, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name='egresados.xlsx')
 
 
 @admin.route('/admin/programas-por-facultad')
@@ -187,11 +179,15 @@ def exportar_egresado_pdf(id):
         flash('No tienes permiso para ver este egresado.', 'danger')
         return redirect(url_for('admin.egresados'))
 
-    certificados = [c for c in e.certificados if c.categoria != 'idioma']
-    idiomas = [c for c in e.certificados if c.categoria == 'idioma']
+    # Historial Auditoria
+    registrar('consulta', 'egresados', f'Exportó el PDF de {e.nombre_completo}', guardar=True)
+
+    certificados = [c for c in e.certificados_ordenados if c.categoria != 'idioma']
+    idiomas = [c for c in e.certificados_ordenados if c.categoria == 'idioma']
     habilidades = [h for h in e.habilidades if h.tipo == 'habilidad']
     intereses = [h for h in e.habilidades if h.tipo == 'interes']
 
-    pdf = generar_cv(e, e.empleos, e.formaciones, certificados, habilidades, intereses, idiomas)
+    pdf = generar_cv(e, e.empleos_ordenados, e.formaciones_ordenadas, certificados, habilidades, intereses, idiomas)
+
     nombre = f'Perfil_{e.apellido_paterno}_{e.nombres.split()[0]}.pdf'
     return send_file(pdf, mimetype='application/pdf', as_attachment=True, download_name=nombre)

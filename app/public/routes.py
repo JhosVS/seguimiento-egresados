@@ -59,12 +59,15 @@ def ofertas():
         consulta = base.filter(not_(nacional))
     lista = consulta.order_by(OfertaLaboral.fecha_publicacion.desc()).all()
 
+
     def obtener_url_imagen(ruta):
         if not ruta:
             return None
         if ruta.startswith('http://') or ruta.startswith('https://'):
             return ruta
-        return url_for('static', filename=ruta)
+        # Limpiamos el prefijo 'uploads/' si viene incluido en la base de datos
+        filename = ruta.replace('uploads/', '', 1) if ruta.startswith('uploads/') else ruta
+        return url_for('uploaded_file', filename=filename)
 
     ofertas_json = [{
         'id': o.id_oferta,

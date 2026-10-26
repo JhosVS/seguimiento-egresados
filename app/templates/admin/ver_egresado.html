@@ -290,7 +290,7 @@
                     <td>{{ c.fecha_emision.strftime('%d/%m/%Y') if c.fecha_emision else '—' }}</td>
                     <td class="text-nowrap">
                         {% if c.ruta_archivo %}
-                        <a href="{{ url_for('egresado.archivo_certificado', id=c.id_certificado) }}" target="_blank"
+                        <a href="{{ url_for('auth.archivo_certificado', id=c.id_certificado) }}" target="_blank"
                            class="btn btn-sm btn-outline-primary py-0 px-1" title="Ver PDF">
                             <i class="bi bi-file-earmark-pdf"></i>
                         </a>

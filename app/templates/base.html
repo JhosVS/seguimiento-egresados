@@ -62,7 +62,7 @@
                 </a>
             {% else %}
                 <a href="{{ url_for('admin.dashboard') }}" class="sidebar-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
-                    <i class="bi bi-speedometer2"></i><span class="sidebar-text">Panel</span>
+                    <i class="bi bi-speedometer2"></i><span class="sidebar-text">Tablero de control</span>
                 </a>
                 <a href="{{ url_for('admin.egresados') }}" class="sidebar-link {% if request.endpoint in ['admin.egresados', 'admin.ver_egresado'] %}active{% endif %}">
                     <i class="bi bi-people"></i><span class="sidebar-text">Egresados</span>
@@ -70,13 +70,14 @@
                 <a href="{{ url_for('admin.ofertas') }}" class="sidebar-link {% if request.endpoint == 'admin.ofertas' %}active{% endif %}">
                     <i class="bi bi-briefcase"></i><span class="sidebar-text">Publicar oferta laboral</span>
                 </a>
-                {# Se activan a medida que se reparan los módulos:
-                <a href="{{ url_for('admin.personal') }}" class="sidebar-link {% if request.endpoint == 'admin.personal' %}active{% endif %}">
+                <a href="{{ url_for('admin.personal') }}" class="sidebar-link {% if request.endpoint in ['admin.personal', 'admin.nuevo_personal', 'admin.editar_personal'] %}active{% endif %}">
                     <i class="bi bi-person-badge"></i><span class="sidebar-text">Personal</span>
                 </a>
-                #}
                 <a href="{{ url_for('admin.encuestas') }}" class="sidebar-link {% if request.endpoint in ['admin.encuestas', 'admin.detalle_encuesta', 'admin.resultados_encuesta'] %}active{% endif %}">
                     <i class="bi bi-clipboard-data"></i><span class="sidebar-text">Encuestas</span>
+                </a>
+                <a href="{{ url_for('admin.historial') }}" class="sidebar-link {% if request.endpoint == 'admin.historial' %}active{% endif %}">
+                    <i class="bi bi-clock-history"></i><span class="sidebar-text">Historial</span>
                 </a>
             {% endif %}
         </nav>

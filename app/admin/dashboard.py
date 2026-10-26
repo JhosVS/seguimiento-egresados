@@ -1,182 +1,212 @@
 # app/admin/dashboard.py
-from datetime import date, timedelta
+import re
+import unicodedata
+from collections import Counter
 
-from flask import current_app, render_template, request, send_file
+from flask import render_template, request, send_file
 from flask_login import current_user
 from sqlalchemy import and_, case, distinct, func, select
 
 from app.admin import admin
-from app.admin.informes import generar_informe_pdf
+from app.auth.decorators import requiere_rol
 from app.extensions import db
-from app.models import (Curricula, Egresado, Empleo, Facultad, FormacionAcademica, OfertaLaboral, ProgramaEstudio, Sector, Usuario)
-from app.utils.helpers import alcance_personal
+from app.models import Curricula, Egresado, Empleo, EncuestaEnvio, FormacionAcademica, Sector
 
-NIVELES = {0: 'Egresado (sin grado)', 1: 'Bachiller', 2: 'Titulado', 3: 'Maestría', 4: 'Doctorado'}
+from app.admin.informes import generar_informe_pdf
+from app.utils.historial import registrar
 
+GRADOS = [('bachiller', 'Bachiller', '#0d6efd'), ('titulado', 'Título profesional', '#198754'),
+          ('maestria', 'Maestría', '#ffc107'), ('doctorado', 'Doctorado', '#dc3545')]
+TOP_EMPRESAS = 10
 
-def _filtros_activos():
-    return current_app.config.get('FILTRO_ESTRUCTURA_ACTIVO')
-
-
-def _filtros_de_url():
-    """Facultad/programa de la URL, solo si el filtro está activado."""
-    if not _filtros_activos():
-        return None, None
-    return request.args.get('id_facultad', type=int), request.args.get('id_programa', type=int)
+# Siglas legales que se ignoran al comparar nombres de empresa
+SUFIJOS_EMPRESA = {'sac', 'sa', 'saa', 'srl', 'eirl', 'ltda', 'inc', 'llc',
+                   'sociedad', 'anonima', 'cerrada', 'abierta'}
 
 
 def _pct(parte, total):
     return round(parte / total * 100, 1) if total else 0
 
 
-def _por_grupo(grupo, ids):
-    """Por cada valor de `grupo` (año de egreso, currícula...):
-    (grupo, egresados, con cuenta, con empleo actual, titulados)."""
-    actual = case((and_(Empleo.id_empleo.is_not(None), Empleo.fecha_fin.is_(None)), Egresado.id_egresado))
-    titulado = case((FormacionAcademica.tipo == 'titulado', Egresado.id_egresado))
-    return db.session.execute(
-        select(grupo,
-               func.count(distinct(Egresado.id_egresado)),
-               func.count(distinct(Usuario.id_usuario)),
-               func.count(distinct(actual)),
-               func.count(distinct(titulado)))
-        .select_from(Egresado)
-        .join(Curricula, Egresado.id_curricula == Curricula.id_curricula)
-        .outerjoin(Usuario, Usuario.id_egresado == Egresado.id_egresado)
-        .outerjoin(Empleo, Empleo.id_egresado == Egresado.id_egresado)
-        .outerjoin(FormacionAcademica, FormacionAcademica.id_egresado == Egresado.id_egresado)
-        .where(Egresado.id_egresado.in_(ids), grupo.is_not(None))
-        .group_by(grupo).order_by(grupo)).all()
+def _clave_empresa(nombre):
+    """Agrupa variantes del mismo nombre: 'Tech Solutions S.A.C.' = 'TECH SOLUTIONS'."""
+    texto = unicodedata.normalize('NFKD', nombre or '').encode('ascii', 'ignore').decode().lower()
+    texto = re.sub(r'[^a-z0-9]+', ' ', texto.replace('.', ''))
+    return ' '.join(p for p in texto.split() if p not in SUFIJOS_EMPRESA)
 
 
-def obtener_metricas(personal, id_facultad=None, id_programa=None):
-    """Datos del panel. El alcance del rol manda sobre los filtros de la URL."""
-    fac_fijo, prog_fijo = alcance_personal(personal)
-    if prog_fijo is not None:
-        id_programa, id_facultad = prog_fijo, None
-    elif fac_fijo is not None:
-        id_facultad = fac_fijo
+def _empleo_actual(sectores=None):
+    """Condición: el egresado tiene un empleo actual (opcionalmente en alguno de esos sectores)."""
+    q = select(Empleo.id_empleo).where(
+        Empleo.id_egresado == Egresado.id_egresado, Empleo.fecha_fin.is_(None))
+    if sectores:
+        q = q.where(Empleo.id_sector.in_(sectores))
+    return q.exists()
 
-    ids = (select(Egresado.id_egresado)
-           .join(Curricula, Egresado.id_curricula == Curricula.id_curricula)
-           .join(ProgramaEstudio, Curricula.id_programa == ProgramaEstudio.id_programa))
-    if id_facultad is not None:
-        ids = ids.where(ProgramaEstudio.id_facultad == id_facultad)
-    if id_programa is not None:
-        ids = ids.where(ProgramaEstudio.id_programa == id_programa)
-    en_alcance = Egresado.id_egresado.in_(ids)
 
-    # --- Por currícula (de aquí salen también los totales) ---
-    curriculas = _por_grupo(Curricula.nombre, ids)
-    total = sum(c[1] for c in curriculas)
-    con_cuenta = sum(c[2] for c in curriculas)
-    con_empleo = sum(c[3] for c in curriculas)
-    titulados = sum(c[4] for c in curriculas)
+def _filtros_de_url():
+    a = request.args
+    situacion = a.get('situacion', '')
+    return {
+        'anio_egreso': a.get('anio_egreso', type=int),
+        'anio_ingreso': a.get('anio_ingreso', type=int),
+        'situacion': situacion if situacion in ('con_empleo', 'sin_empleo') else '',
+        'curricula': a.get('curricula', '').strip(),
+        'sectores': a.getlist('sector', type=int),
+    }
 
-    # --- Situación laboral (solo egresados con cuenta) ---
+def _describir_filtros(f):
+    partes = []
+    if f['anio_egreso']:
+        partes.append(f'año de egreso {f["anio_egreso"]}')
+    if f['anio_ingreso']:
+        partes.append(f'año de ingreso {f["anio_ingreso"]}')
+    if f['curricula']:
+        partes.append(f'currícula {f["curricula"]}')
+    if f['situacion']:
+        partes.append('con empleo actual' if f['situacion'] == 'con_empleo' else 'sin empleo actual')
+    if f['sectores']:
+        nombres = db.session.scalars(select(Sector.nombre).where(Sector.id_sector.in_(f['sectores']))
+                                     .order_by(Sector.nombre)).all()
+        partes.append('con empleo actual en el sector ' + ', '.join(nombres))
+    return partes
+
+def _egresados_filtrados(f):
+    # El join con Curricula se mantiene siempre: evita que la subconsulta se confunda con la externa
+    q = select(Egresado.id_egresado).join(Curricula, Egresado.id_curricula == Curricula.id_curricula)
+    if f['anio_egreso']:
+        q = q.where(Egresado.anio_egreso == f['anio_egreso'])
+    if f['anio_ingreso']:
+        q = q.where(Egresado.anio_ingreso == f['anio_ingreso'])
+    if f['curricula']:
+        q = q.where(Curricula.nombre == f['curricula'])
+    if f['situacion'] == 'con_empleo':
+        q = q.where(_empleo_actual())
+    elif f['situacion'] == 'sin_empleo':
+        q = q.where(~_empleo_actual())
+    if f['sectores']:
+        q = q.where(_empleo_actual(f['sectores']))
+    return q
+
+
+def _ranking_empresas(ids):
+    """Top de empresas por cantidad de egresados distintos que trabajaron en ellas."""
+    filas = db.session.execute(
+        select(Empleo.id_egresado, Empleo.empresa_nombre).where(Empleo.id_egresado.in_(ids))).all()
+    grupos = {}
+    for id_egresado, nombre in filas:
+        clave = _clave_empresa(nombre)
+        if clave:
+            g = grupos.setdefault(clave, {'egresados': set(), 'nombres': Counter()})
+            g['egresados'].add(id_egresado)
+            g['nombres'][nombre.strip()] += 1
+    ranking = [[g['nombres'].most_common(1)[0][0], len(g['egresados'])] for g in grupos.values()]
+    ranking.sort(key=lambda r: (-r[1], r[0].lower()))
+    return ranking[:TOP_EMPRESAS]
+
+
+def _titulacion(ids, total):
+    """Cuántos egresados tienen cada grado o título (una persona puede tener varios)."""
+    conteo = dict(db.session.execute(
+        select(FormacionAcademica.tipo, func.count(distinct(FormacionAcademica.id_egresado)))
+        .where(FormacionAcademica.id_egresado.in_(ids))
+        .group_by(FormacionAcademica.tipo)).all())
+    return {'labels': [nombre for _, nombre, _ in GRADOS],
+            'datos': [conteo.get(tipo, 0) for tipo, _, _ in GRADOS],
+            'pct': [_pct(conteo.get(tipo, 0), total) for tipo, _, _ in GRADOS],
+            'colores': [color for _, _, color in GRADOS]}
+
+
+def obtener_tablero(f):
+    """Todos los datos del tablero, con los filtros aplicados."""
+    ids = _egresados_filtrados(f)
+    en_ids = Egresado.id_egresado.in_(ids)
+
+    por_genero = dict(db.session.execute(
+        select(Egresado.genero, func.count()).where(en_ids).group_by(Egresado.genero)).all())
+    total = sum(por_genero.values())
+    varones, mujeres = por_genero.get('M', 0), por_genero.get('F', 0)
+
+    con_empleo = db.session.scalar(select(func.count()).select_from(Egresado).where(en_ids, _empleo_actual()))
     con_algun_empleo = db.session.scalar(
         select(func.count(distinct(Empleo.id_egresado))).where(Empleo.id_egresado.in_(ids)))
-    situacion = [
-        ('Con empleo actual', con_empleo),
-        ('Solo empleos anteriores', max(0, con_algun_empleo - con_empleo)),
-        ('Sin empleo registrado', max(0, con_cuenta - con_algun_empleo)),
-    ]
+    titulados = db.session.scalar(
+        select(func.count(distinct(FormacionAcademica.id_egresado)))
+        .where(FormacionAcademica.id_egresado.in_(ids), FormacionAcademica.tipo == 'titulado'))
+    participaron = db.session.scalar(
+        select(func.count(distinct(EncuestaEnvio.id_egresado))).where(EncuestaEnvio.id_egresado.in_(ids)))
 
-    # --- Nivel académico máximo ---
-    nivel = case((FormacionAcademica.tipo == 'doctorado', 4),
-                 (FormacionAcademica.tipo == 'maestria', 3),
-                 (FormacionAcademica.tipo == 'titulado', 2),
-                 (FormacionAcademica.tipo == 'bachiller', 1))
-    maximo = (select(func.max(nivel).label('n'))
-              .where(FormacionAcademica.id_egresado.in_(ids))
-              .group_by(FormacionAcademica.id_egresado)).subquery()
-    conteo = dict(db.session.execute(select(maximo.c.n, func.count()).group_by(maximo.c.n)).all())
-    conteo[0] = total - sum(conteo.values())
-    niveles = [(NIVELES[k], conteo[k]) for k in sorted(NIVELES, reverse=True) if conteo.get(k)]
-
-    # --- Sector económico (empleos actuales) ---
+    # Sector económico de los empleos actuales (si hay sectores marcados, solo esos)
     sector = func.coalesce(Sector.nombre, 'Sin sector')
-    sectores = db.session.execute(
-        select(sector, func.count(Empleo.id_empleo))
-        .select_from(Empleo).outerjoin(Sector, Empleo.id_sector == Sector.id_sector)
-        .where(Empleo.id_egresado.in_(ids), Empleo.fecha_fin.is_(None))
-        .group_by(sector).order_by(func.count(Empleo.id_empleo).desc()).limit(7)).all()
+    q_sector = (select(sector, func.count(Empleo.id_empleo))
+                .select_from(Empleo).outerjoin(Sector, Empleo.id_sector == Sector.id_sector)
+                .where(Empleo.id_egresado.in_(ids), Empleo.fecha_fin.is_(None)))
+    if f['sectores']:
+        q_sector = q_sector.where(Empleo.id_sector.in_(f['sectores']))
+    sectores = [[s, c] for s, c in db.session.execute(
+        q_sector.group_by(sector).order_by(func.count(Empleo.id_empleo).desc())).all()]
 
-    # --- Listas para actuar ---
-    hoy = date.today()
-    por_vencer = db.session.scalars(
-        select(OfertaLaboral)
-        .where(OfertaLaboral.activa.is_(True),
-               OfertaLaboral.fecha_vencimiento.between(hoy, hoy + timedelta(days=15)))
-        .order_by(OfertaLaboral.fecha_vencimiento).limit(5)).all()
-
-    sin_empleo = db.session.scalars(
-        select(Egresado)
-        .join(Usuario, Usuario.id_egresado == Egresado.id_egresado)
-        .where(en_alcance,
-               ~select(Empleo.id_empleo).where(Empleo.id_egresado == Egresado.id_egresado).exists())
-        .order_by(Usuario.creado_en.desc()).limit(8)).all()
+    # Por currícula
+    actual = case((and_(Empleo.id_empleo.is_not(None), Empleo.fecha_fin.is_(None)), Egresado.id_egresado))
+    bachiller = case((FormacionAcademica.tipo == 'bachiller', Egresado.id_egresado))
+    titulado = case((FormacionAcademica.tipo == 'titulado', Egresado.id_egresado))
+    postgrado = case((FormacionAcademica.tipo.in_(('maestria', 'doctorado')), Egresado.id_egresado))
+    curriculas = db.session.execute(
+        select(Curricula.nombre, func.count(distinct(actual)), func.count(distinct(Egresado.id_egresado)),
+               func.count(distinct(bachiller)), func.count(distinct(titulado)), func.count(distinct(postgrado)))
+        .select_from(Egresado)
+        .join(Curricula, Egresado.id_curricula == Curricula.id_curricula)
+        .outerjoin(Empleo, Empleo.id_egresado == Egresado.id_egresado)
+        .outerjoin(FormacionAcademica, FormacionAcademica.id_egresado == Egresado.id_egresado)
+        .where(en_ids).group_by(Curricula.nombre).order_by(Curricula.nombre)).all()
 
     return {
-        'total': total, 'con_cuenta': con_cuenta, 'pct_cuenta': _pct(con_cuenta, total),
-        'con_empleo': con_empleo, 'pct_empleo': _pct(con_empleo, con_cuenta),
+        'total': total, 'varones': varones, 'mujeres': mujeres, 'sin_genero': total - varones - mujeres,
+        'con_empleo': con_empleo, 'pct_empleo': _pct(con_empleo, total),
         'titulados': titulados, 'pct_titulados': _pct(titulados, total),
-        'situacion': situacion, 'niveles': niveles,
-        'sector_labels': [s[0] for s in sectores], 'sector_data': [s[1] for s in sectores],
-        'curriculas': curriculas, 'por_vencer': por_vencer, 'sin_empleo': sin_empleo,
+        'participaron': participaron, 'pct_participacion': _pct(participaron, total),
+        'situacion': [['Con empleo actual', con_empleo],
+                      ['Solo empleos anteriores', max(0, con_algun_empleo - con_empleo)],
+                      ['Sin empleo registrado', max(0, total - con_algun_empleo)]],
+        'titulacion': _titulacion(ids, total), 'sectores': sectores,
+        'empresas': _ranking_empresas(ids), 'curriculas': curriculas,
     }
 
 
-def _opciones_filtro(personal, id_facultad):
-    """Listas de los desplegables facultad/programa (solo si el filtro está activo)."""
-    fac_fijo, prog_fijo = alcance_personal(personal)
-    q_fac = select(Facultad).where(Facultad.estado == 'activo').order_by(Facultad.nombre)
-    q_prog = (select(ProgramaEstudio).where(ProgramaEstudio.estado == 'activo')
-              .order_by(ProgramaEstudio.nombre))
-    if prog_fijo is not None:               # rol de programa: sin filtros
-        return [], db.session.scalars(q_prog.where(ProgramaEstudio.id_programa == prog_fijo)).all()
-    if fac_fijo is not None:                # rol de facultad: solo la suya
-        q_fac = q_fac.where(Facultad.id_facultad == fac_fijo)
-        id_facultad = fac_fijo
-    programas = (db.session.scalars(q_prog.where(ProgramaEstudio.id_facultad == id_facultad)).all()
-                 if id_facultad is not None else [])
-    return db.session.scalars(q_fac).all(), programas
+def _opciones_tablero():
+    """Valores de los desplegables de los filtros."""
+    def distintos(columna):
+        return [v for (v,) in db.session.execute(
+            select(columna).where(columna.is_not(None)).distinct().order_by(columna.desc()))]
+    return {
+        'anios_egreso': distintos(Egresado.anio_egreso),
+        'anios_ingreso': distintos(Egresado.anio_ingreso),
+        'curriculas': [c for (c,) in db.session.execute(
+            select(Curricula.nombre).join(Egresado, Egresado.id_curricula == Curricula.id_curricula)
+            .distinct().order_by(Curricula.nombre))],
+        'sectores': db.session.scalars(select(Sector).order_by(Sector.nombre)).all(),
+    }
 
 
 @admin.route('/admin')
+@requiere_rol('administrador')
 def dashboard():
-    personal = current_user.personal
-    id_facultad, id_programa = _filtros_de_url()
+    f = _filtros_de_url()
+    datos = obtener_tablero(f)
 
-    facultades, programas = (_opciones_filtro(personal, id_facultad)
-                             if _filtros_activos() else ([], []))
+    # HTMX pide solo los resultados; una carga normal (o volver atrás en el historial) trae la página completa
+    if request.headers.get('HX-Request') and not request.headers.get('HX-History-Restore-Request'):
+        return render_template('admin/_tablero.html', datos=datos)
+    return render_template('admin/dashboard.html', datos=datos, f=f, **_opciones_tablero())
 
-    return render_template('admin/dashboard.html',
-                           facultades=facultades, programas=programas,
-                           id_facultad=id_facultad, id_programa=id_programa,
-                           **obtener_metricas(personal, id_facultad, id_programa))
-
-
+# Generar informe
 @admin.route('/admin/informes/pdf')
+@requiere_rol('administrador')
 def informe_pdf():
-    personal = current_user.personal
-    id_facultad, id_programa = _filtros_de_url()
-
-    fac_fijo, prog_fijo = alcance_personal(personal)
-    if prog_fijo is not None:
-        id_programa, id_facultad = prog_fijo, None
-    elif fac_fijo is not None:
-        id_facultad = fac_fijo
-
-    ambito = None   # el informe pone "Todos los egresados registrados"
-    if id_programa is not None:
-        p = db.session.get(ProgramaEstudio, id_programa)
-        ambito = f'Programa: {p.nombre}' if p else None
-    elif id_facultad is not None:
-        f = db.session.get(Facultad, id_facultad)
-        ambito = f'Facultad: {f.nombre}' if f else None
-
-    datos = obtener_metricas(personal, id_facultad, id_programa)
-    pdf = generar_informe_pdf(datos, personal.nombre_completo, ambito=ambito)
+    f = _filtros_de_url()
+    filtros = _describir_filtros(f)
+    pdf = generar_informe_pdf(obtener_tablero(f), filtros, current_user.personal.nombre_completo)
+    registrar('consulta', 'informes',
+              'Generó el informe PDF' + (f' ({"; ".join(filtros)})' if filtros else ''), guardar=True)
     return send_file(pdf, mimetype='application/pdf', as_attachment=True,
                      download_name='informe_egresados.pdf')

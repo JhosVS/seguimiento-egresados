@@ -189,15 +189,10 @@ class Egresado(db.Model):
     usuario = db.relationship('Usuario', back_populates='egresado', uselist=False)
 
     # Tablas hijas: la base borra en cascada, por eso passive_deletes=True
-    empleos = db.relationship('Empleo', back_populates='egresado', cascade='all, delete-orphan',
-                              passive_deletes=True, order_by='Empleo.fecha_inicio.desc()')
-    formaciones = db.relationship('FormacionAcademica', back_populates='egresado',
-                                  cascade='all, delete-orphan', passive_deletes=True,
-                                  order_by='FormacionAcademica.fecha_obtencion')
-    certificados = db.relationship('Certificado', back_populates='egresado',
-                                   cascade='all, delete-orphan', passive_deletes=True)
-    habilidades = db.relationship('Habilidad', back_populates='egresado',
-                                  cascade='all, delete-orphan', passive_deletes=True)
+    empleos = db.relationship('Empleo', back_populates='egresado', cascade='all, delete-orphan', passive_deletes=True, order_by='Empleo.fecha_inicio.desc()')
+    formaciones = db.relationship('FormacionAcademica', back_populates='egresado', cascade='all, delete-orphan', passive_deletes=True, order_by='FormacionAcademica.fecha_obtencion')
+    certificados = db.relationship('Certificado', back_populates='egresado', cascade='all, delete-orphan', passive_deletes=True)
+    habilidades = db.relationship('Habilidad', back_populates='egresado', cascade='all, delete-orphan', passive_deletes=True)
 
     @property
     def nombre_completo(self):
@@ -355,8 +350,7 @@ class Empleo(db.Model):
     __tablename__ = 'empleos'
 
     id_empleo = db.Column(db.Integer, primary_key=True)
-    id_egresado = db.Column(db.Integer, db.ForeignKey('egresados.id_egresado', ondelete='CASCADE'),
-                            nullable=False)
+    id_egresado = db.Column(db.Integer, db.ForeignKey('egresados.id_egresado', ondelete='CASCADE'), nullable=False)
     empresa_nombre = db.Column(db.String(200), nullable=False)
     id_sector = db.Column(db.Integer, db.ForeignKey('sectores.id_sector', ondelete='SET NULL'))
     cargo = db.Column(db.String(150), nullable=False)
@@ -385,12 +379,10 @@ class FormacionAcademica(db.Model):
     __tablename__ = 'formacion_academica'
 
     id_formacion = db.Column(db.Integer, primary_key=True)
-    id_egresado = db.Column(db.Integer, db.ForeignKey('egresados.id_egresado', ondelete='CASCADE'),
-                            nullable=False)
+    id_egresado = db.Column(db.Integer, db.ForeignKey('egresados.id_egresado', ondelete='CASCADE'), nullable=False)
     tipo = db.Column(db.Enum('bachiller', 'titulado', 'maestria', 'doctorado'), nullable=False)
     grado_titulo = db.Column(db.String(300), nullable=False)
-    institucion = db.Column(db.String(200), nullable=False,
-                            default='Universidad Nacional Daniel Alcides Carrión')
+    institucion = db.Column(db.String(200), nullable=False, default='Universidad Nacional Daniel Alcides Carrión')
     fecha_obtencion = db.Column(db.Date, nullable=False)
     fuente = db.Column(db.Enum('SUNEDU', 'MINEDU', 'Otro'), nullable=False, default='SUNEDU')
     creado_en = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
@@ -408,12 +400,10 @@ class Certificado(db.Model):
     __tablename__ = 'certificados'
 
     id_certificado = db.Column(db.Integer, primary_key=True)
-    id_egresado = db.Column(db.Integer, db.ForeignKey('egresados.id_egresado', ondelete='CASCADE'),
-                            nullable=False)
+    id_egresado = db.Column(db.Integer, db.ForeignKey('egresados.id_egresado', ondelete='CASCADE'), nullable=False)
     nombre = db.Column(db.String(255), nullable=False)          # en pantalla: "Certificado"
     institucion_emisora = db.Column(db.String(200), nullable=False)
-    categoria = db.Column(db.Enum('curso', 'capacitacion', 'taller', 'idioma', 'otro', 'especializacion'),
-                          nullable=False, default='curso')
+    categoria = db.Column(db.Enum('curso', 'capacitacion', 'taller', 'idioma', 'otro', 'especializacion'), nullable=False, default='curso')
     nivel_idioma = db.Column(db.Enum('basico', 'intermedio', 'avanzado'))   # solo si categoria = 'idioma'
     fecha_emision = db.Column(db.Date)
     url_credencial = db.Column(db.Text)
@@ -481,7 +471,6 @@ class OfertaLaboral(db.Model):
 
     @property
     def vigente(self):
-        """Activa y todavía no vencida (igual que la vista v_ofertas_vigentes)."""
         return bool(self.activa) and self.fecha_vencimiento >= date.today()
 
     def __repr__(self):
@@ -596,3 +585,19 @@ class RespuestaOpcion(db.Model):
     texto_otro = db.Column(db.String(255))
 
     opcion = db.relationship('Opcion')
+
+# ============================================================
+# 15. HIATORIAL (auditoria)
+# ============================================================
+
+class Historial(db.Model):
+    __tablename__ = 'historial'
+
+    id_historial = db.Column(db.BigInteger, primary_key=True)
+    fecha = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    id_usuario = db.Column(db.Integer, db.ForeignKey('usuarios.id_usuario', ondelete='SET NULL'))
+    usuario_correo = db.Column(db.String(150))
+    rol = db.Column(db.String(50))
+    accion = db.Column(db.Enum('consulta', 'creacion', 'actualizacion', 'eliminacion'), nullable=False)
+    modulo = db.Column(db.String(50), nullable=False)
+    detalle = db.Column(db.String(300), nullable=False)

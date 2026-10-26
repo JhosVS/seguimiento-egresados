@@ -21,6 +21,7 @@ from app.models import (
 )
 from datetime import datetime
 from app.utils.cv_pdf import generar_cv, generar_cv_simple
+from app.utils.historial import registrar
 
 # ============================================
 # UTILIDADES Y DECORADORES
@@ -198,6 +199,7 @@ def _validar_empleo(form, empleo=None):
 
 def _guardar_empleo(empleo=None):
     errores, valores = _validar_empleo(request.form, empleo)
+
     if errores:
         # Se vuelve a mostrar la fila con lo que escribió y los errores
         return _tabla_empleos(nuevo=empleo is None,
@@ -209,6 +211,7 @@ def _guardar_empleo(empleo=None):
         db.session.add(empleo)
     for campo, valor in valores.items():
         setattr(empleo, campo, valor)
+
     db.session.commit()
     return _tabla_empleos()
 
@@ -524,8 +527,7 @@ def certificados():
 @login_required
 @solo_egresado
 def certificados_tabla():
-    return _tabla_certificados(nuevo=request.args.get('nuevo') == '1',
-                               editando=request.args.get('editar', type=int))
+    return _tabla_certificados(nuevo=request.args.get('nuevo') == '1', editando=request.args.get('editar', type=int))
 
 
 @egresado.route('/certificados/guardar', methods=['POST'])
@@ -539,8 +541,7 @@ def guardar_certificado_nuevo():
 @login_required
 @solo_egresado
 def guardar_certificado(id):
-    cert = Certificado.query.filter_by(id_certificado=id,
-                                       id_egresado=current_user.id_egresado).first_or_404()
+    cert = Certificado.query.filter_by(id_certificado=id, id_egresado=current_user.id_egresado).first_or_404()
     return _guardar_certificado(cert)
 
 
@@ -548,28 +549,12 @@ def guardar_certificado(id):
 @login_required
 @solo_egresado
 def eliminar_certificado(id):
-    cert = Certificado.query.filter_by(id_certificado=id,
-                                       id_egresado=current_user.id_egresado).first_or_404()
+    cert = Certificado.query.filter_by(id_certificado=id, id_egresado=current_user.id_egresado).first_or_404()
     pdf = cert.ruta_archivo
     db.session.delete(cert)
     db.session.commit()
     _borrar_pdf(pdf)
     return _tabla_certificados()
-
-
-@egresado.route('/certificados/<int:id>/archivo')
-@login_required
-def archivo_certificado(id):
-    """Entrega el PDF solo a su dueño o al personal."""
-    cert = db.session.get(Certificado, id)
-    if cert is None or not cert.ruta_archivo:
-        abort(404)
-    if not (current_user.es_personal or cert.id_egresado == current_user.id_egresado):
-        abort(403)
-    return send_from_directory(_carpeta_certificados(), os.path.basename(cert.ruta_archivo),
-                               mimetype='application/pdf',
-                               download_name=f'certificado-{cert.id_certificado}.pdf')
-
 
 # ============================================
 # HABILIDADES E INTERESES
@@ -677,23 +662,23 @@ def generar_cv_final():
     certificados = [c for c in todos if c.categoria != 'idioma' and c.id_certificado in ids_cert]
     idiomas = [c for c in todos if c.categoria == 'idioma']      # los idiomas van siempre
 
-    if request.form.get('tipo_cv') == 'especifico':
-        puesto = request.form.get('puesto', '').strip()
+    if request.form.get('tipo_cv') == 'alternativo':
+        puesto = request.form.get('titulo_cv', '').strip()
         if not puesto:
-            flash('Escribe el puesto al que postulas.', 'danger')
+            flash('Escribe el título u ocupación: en el CV alternativo es el puesto al que postulas.', 'danger')
             return redirect(url_for('egresado.seleccionar_cv'))
-        ids_hab = set(_ids('habilidades'))
-        habilidades = [h for h in e.habilidades if h.tipo == 'habilidad' and h.id_habilidad in ids_hab]
-        buf = generar_cv_simple(e, puesto[:150], request.form.get('resumen', ''),
+        habilidades = [h for h in e.habilidades if h.tipo == 'habilidad']
+        buf = generar_cv_simple(e, puesto[:150], request.form.get('perfil_profesional', ''),
                                 empleos, logros, certificados, habilidades, idiomas)
         archivo = _nombre_archivo('CV', e.apellido_paterno, e.nombres, puesto)
     else:
-        titulo = request.form.get('titulo_cv', '').strip()[:150] or None
-        perfil = request.form.get('perfil_profesional', '').strip()
+        e.titulo_cv = request.form.get('titulo_cv', '').strip()[:150] or None
+        e.perfil_profesional = request.form.get('perfil_profesional', '').strip() or None
+        db.session.commit()
+
         habilidades = [h for h in e.habilidades if h.tipo == 'habilidad']
         intereses = [h for h in e.habilidades if h.tipo == 'interes']
-        buf = generar_cv(e, empleos, logros, certificados, habilidades, intereses, idiomas,
-                         titulo=titulo, perfil=perfil)
+        buf = generar_cv(e, empleos, logros, certificados, habilidades, intereses, idiomas)
         archivo = _nombre_archivo('CV', e.apellido_paterno, e.nombres)
 
     return send_file(buf, mimetype='application/pdf', as_attachment=True, download_name=archivo)

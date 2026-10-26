@@ -1,39 +1,21 @@
 # app/admin/personal.py
+import re
+
 from flask import flash, redirect, render_template, request, url_for
 from flask_login import current_user
+from sqlalchemy import func
 
 from app.admin import admin
 from app.auth.decorators import requiere_rol
 from app.extensions import bcrypt, db
-from app.models import Facultad, Personal, ProgramaEstudio, Rol, Usuario
+from app.models import Personal, Rol, Usuario
+from app.admin.roles import ROLES_HABILITADOS
 
-ROLES_ACCESO = ('administrador', 'coordinador')
-ROLES_GESTIONABLES = ('coordinador', 'docente_responsable')
+from app.utils.historial import registrar
+from app.models import Historial
+from app.utils.historial import depurar_historial
 
-
-def _contexto():
-    """Rol del usuario actual y lo que puede asignar: (rol_activo, roles, facultades, programas)."""
-    rol_activo = current_user.rol
-    if rol_activo == 'administrador':
-        roles = Rol.query.filter(Rol.nombre.in_(ROLES_GESTIONABLES)).order_by(Rol.nombre).all()
-        facultades = Facultad.query.filter_by(estado='activo').order_by(Facultad.nombre).all()
-        programas = (ProgramaEstudio.query.filter_by(estado='activo')
-                     .order_by(ProgramaEstudio.nombre).all())
-    else:  # coordinador: solo docentes de los programas de su facultad
-        id_fac = current_user.personal.id_facultad
-        roles = Rol.query.filter_by(nombre='docente_responsable').all()
-        facultades = []
-        programas = (ProgramaEstudio.query.filter_by(id_facultad=id_fac, estado='activo')
-                     .order_by(ProgramaEstudio.nombre).all()) if id_fac else []
-    return rol_activo, roles, facultades, programas
-
-
-def _puede_gestionar(persona):
-    """El administrador gestiona a todos; el coordinador, a los docentes de su facultad."""
-    if current_user.rol == 'administrador':
-        return True
-    id_fac = current_user.personal.id_facultad
-    return bool(id_fac and persona.programa and persona.programa.id_facultad == id_fac)
+ID_CUENTA_NATIVA = 1      # la administradora del script SQL: no se puede desactivar
 
 
 def _datos_basicos():
@@ -62,155 +44,150 @@ def _validar_basicos(datos, excluir_id=None):
     return None
 
 
-def _asignar_rol_y_ambito(persona, id_rol, roles, facultades, programas):
-    """Valida el rol y su ámbito (facultad o programa) y los asigna. Devuelve un error o None."""
-    rol = next((r for r in roles if r.id_rol == id_rol), None)
-    if rol is None:
-        return 'Selección de rol inválida.'
+def _error_correo(correo):
+    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', correo) or len(correo) > 150:
+        return 'El correo no es válido.'
+    return None
 
-    if rol.nombre == 'coordinador':
-        id_facultad = request.form.get('id_facultad', type=int)
-        if not id_facultad:
-            return 'Debes seleccionar una facultad para el coordinador.'
-        if id_facultad not in {f.id_facultad for f in facultades}:
-            return 'Facultad no permitida.'
-        persona.id_facultad, persona.id_programa = id_facultad, None
-    else:  # docente_responsable
-        id_programa = request.form.get('id_programa', type=int)
-        if not id_programa:
-            return 'Debes seleccionar un programa para el docente responsable.'
-        if id_programa not in {p.id_programa for p in programas}:
-            return 'No puedes asignar un programa fuera de tu alcance.'
-        persona.id_facultad, persona.id_programa = None, id_programa
 
-    persona.id_rol = rol.id_rol
-    return persona.validar_ambito()
+def _error_contrasena(clave):
+    """Mismas reglas que el registro del egresado."""
+    if not 8 <= len(clave) <= 72 or not re.search(r'[A-Za-z]', clave) or not re.search(r'\d', clave):
+        return 'La contraseña debe tener entre 8 y 72 caracteres, con letras y números.'
+    return None
 
 
 @admin.route('/admin/personal')
-@requiere_rol(*ROLES_ACCESO)
+@requiere_rol('administrador')
 def personal():
-    rol_activo = current_user.rol
-    q = (db.session.query(Personal, Usuario)
-         .join(Usuario, Usuario.id_personal == Personal.id_personal))
-
-    if rol_activo != 'administrador':
-        id_fac = current_user.personal.id_facultad
-        if not id_fac:
-            q = q.filter(db.false())
-        else:
-            q = (q.join(ProgramaEstudio, Personal.id_programa == ProgramaEstudio.id_programa)
-                  .filter(ProgramaEstudio.id_facultad == id_fac))
-
-    lista = q.order_by(Personal.apellido_paterno, Personal.nombres).all()
-    return render_template('admin/personal.html', lista=lista, rol_activo=rol_activo)
+    lista = (db.session.query(Personal, Usuario)
+             .join(Usuario, Usuario.id_personal == Personal.id_personal)
+             .order_by(Personal.apellido_paterno, Personal.nombres).all())
+    return render_template('admin/personal.html', lista=lista,
+                           roles_habilitados=ROLES_HABILITADOS, id_nativa=ID_CUENTA_NATIVA)
 
 
 @admin.route('/admin/personal/nuevo', methods=['GET', 'POST'])
-@requiere_rol(*ROLES_ACCESO)
+@requiere_rol('administrador')
 def nuevo_personal():
-    rol_activo, roles, facultades, programas = _contexto()
-
-    if rol_activo == 'coordinador' and not programas:
-        flash('Tu facultad no tiene programas activos (o no tienes facultad asignada).', 'warning')
-        return redirect(url_for('admin.personal'))
-
     if request.method == 'POST':
         datos = _datos_basicos()
-        correo = request.form.get('correo', '').strip()
-        contrasena = request.form.get('contrasena', '').strip()
+        correo = request.form.get('correo', '').strip().lower()   # el login compara en minúsculas
+        contrasena = request.form.get('contrasena', '')
 
-        error = _validar_basicos(datos)
-        if not error and not correo:
-            error = 'El correo es obligatorio.'
+        error = _validar_basicos(datos) or _error_correo(correo) or _error_contrasena(contrasena)
         if not error and Usuario.query.filter_by(correo=correo).first():
             error = 'Ese correo ya está registrado.'
-        if not error and len(contrasena) < 8:
-            error = 'La contraseña debe tener al menos 8 caracteres.'
 
-        persona = None
-        if not error:
-            persona = Personal(**datos)
-            error = _asignar_rol_y_ambito(persona, request.form.get('id_rol', type=int),
-                                          roles, facultades, programas)
+        # El rol NO viene del formulario: toda cuenta de personal nueva es administrador
+        rol = Rol.query.filter_by(nombre=ROLES_HABILITADOS[0]).first()
+        if not error and rol is None:
+            error = 'No existe el rol administrador en la base de datos.'
+
         if error:
             flash(error, 'warning')
-            return redirect(url_for('admin.nuevo_personal'))
+            return render_template('admin/formulario_personal.html', persona=None, datos=request.form)
 
+        persona = Personal(**datos, id_rol=rol.id_rol)
         db.session.add(persona)
         db.session.flush()
         db.session.add(Usuario(
             correo=correo,
             contrasena_hash=bcrypt.generate_password_hash(contrasena).decode('utf-8'),
             id_personal=persona.id_personal,
+            ultimo_cambio_password=func.now(),
             estado='activo'))
+
+        # Se registra la acción cuando se crea un nuevo personal
+        registrar('creacion', 'personal', f'Creó la cuenta de administrador {correo}')
+        
         db.session.commit()
 
-        flash('Cuenta de personal creada correctamente.', 'success')
+        flash('Cuenta de administrador creada correctamente.', 'success')
         return redirect(url_for('admin.personal'))
 
-    return render_template('admin/nuevo_personal.html',
-        roles=roles, facultades=facultades, programas=programas, rol_activo=rol_activo)
+    return render_template('admin/formulario_personal.html', persona=None, datos=None)
 
 
 @admin.route('/admin/personal/<int:id>/editar', methods=['GET', 'POST'])
-@requiere_rol(*ROLES_ACCESO)
+@requiere_rol('administrador')
 def editar_personal(id):
     persona = db.get_or_404(Personal, id)
     usuario = Usuario.query.filter_by(id_personal=id).first_or_404()
-    rol_activo, roles, facultades, programas = _contexto()
-
-    if not _puede_gestionar(persona):
-        flash('No tienes permisos sobre esta cuenta.', 'danger')
-        return redirect(url_for('admin.personal'))
-
-    # Las cuentas administrador solo permiten editar datos y contraseña, no el rol
-    puede_cambiar_rol = persona.rol.nombre in ROLES_GESTIONABLES
 
     if request.method == 'POST':
         datos = _datos_basicos()
-        nueva_clave = request.form.get('nueva_contrasena', '').strip()
+        nueva_clave = request.form.get('nueva_contrasena', '')
 
         error = _validar_basicos(datos, excluir_id=id)
-        if not error and nueva_clave and len(nueva_clave) < 8:
-            error = 'La nueva contraseña debe tener al menos 8 caracteres.'
-        if not error:
-            for campo, valor in datos.items():
-                setattr(persona, campo, valor)
-            if puede_cambiar_rol:
-                error = _asignar_rol_y_ambito(persona, request.form.get('id_rol', type=int),
-                                              roles, facultades, programas)
+        if not error and nueva_clave:
+            error = _error_contrasena(nueva_clave)
         if error:
-            db.session.rollback()
             flash(error, 'warning')
-            return redirect(url_for('admin.editar_personal', id=id))
+            return render_template('admin/formulario_personal.html', persona=persona, datos=request.form)
 
+        for campo, valor in datos.items():
+            setattr(persona, campo, valor)
         if nueva_clave:
             usuario.contrasena_hash = bcrypt.generate_password_hash(nueva_clave).decode('utf-8')
+            usuario.ultimo_cambio_password = func.now()
+
+        # Se registra la acción cada que se edita un personal
+        registrar('actualizacion', 'personal', f'Actualizó la cuenta de {usuario.correo}' + (' (cambió la contraseña)' if nueva_clave else ''))
+
         db.session.commit()
         flash('Datos actualizados correctamente.', 'success')
         return redirect(url_for('admin.personal'))
 
-    return render_template('admin/editar_personal.html',
-        persona=persona, usuario=usuario, roles=roles, facultades=facultades,
-        programas=programas, rol_activo=rol_activo, puede_cambiar_rol=puede_cambiar_rol)
+    return render_template('admin/formulario_personal.html', persona=persona, datos=None)
 
 
 @admin.route('/admin/personal/<int:id>/toggle', methods=['POST'])
-@requiere_rol(*ROLES_ACCESO)
+@requiere_rol('administrador')
 def toggle_personal(id):
     persona = db.get_or_404(Personal, id)
     usuario = Usuario.query.filter_by(id_personal=id).first_or_404()
 
     if persona.id_personal == current_user.id_personal:
         flash('No puedes desactivar tu propia cuenta.', 'danger')
-    elif persona.id_personal == 1:
+    elif persona.id_personal == ID_CUENTA_NATIVA:
         flash('La cuenta administradora nativa no puede desactivarse.', 'danger')
-    elif not _puede_gestionar(persona):
-        flash('No tienes permiso sobre esta cuenta.', 'danger')
     else:
+        # Registro de acción actualización de estado
+        registrar('actualizacion', 'personal', f'{"Activó" if usuario.estado == "inactivo" else "Desactivó"} la cuenta de {usuario.correo}')
+
         usuario.estado = 'inactivo' if usuario.estado == 'activo' else 'activo'
+
         db.session.commit()
         flash(f'Cuenta {"activada" if usuario.estado == "activo" else "desactivada"}.', 'info')
 
     return redirect(url_for('admin.personal'))
+
+# ==============================================
+# Apartado de Historial (Auditoria)
+# ==============================================
+
+@admin.route('/admin/historial')
+@requiere_rol('administrador')
+def historial():
+    depurar_historial()           # por si el servidor estuvo apagado a la hora programada
+    accion = request.args.get('accion', '')
+    texto = request.args.get('q', '').strip()
+
+    # 1. Obtenemos los IDs de los 40 registros más recientes en general (100% compatible con MySQL/SQLite)
+    ultimos_ids = [h.id_historial for h in Historial.query.with_entities(Historial.id_historial).order_by(Historial.fecha.desc()).limit(40).all()]
+
+    # 2. Base de la consulta filtrada solo sobre esos 40 registros tope
+    q = Historial.query.filter(Historial.id_historial.in_(ultimos_ids)) if ultimos_ids else Historial.query.filter(db.text('0=1'))
+
+    if accion:
+        q = q.filter(Historial.accion == accion)
+    if texto:
+        q = q.filter(db.or_(Historial.usuario_correo.ilike(f'%{texto}%'),
+                            Historial.detalle.ilike(f'%{texto}%'),
+                            Historial.modulo.ilike(f'%{texto}%')))
+                            
+    pagina = q.order_by(Historial.fecha.desc()).paginate(
+        page=request.args.get('page', 1, type=int), per_page=40, error_out=False)
+        
+    return render_template('admin/historial.html', pagina=pagina, accion=accion, texto=texto)

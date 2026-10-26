@@ -1,0 +1,75 @@
+<!-- app/templates/admin/historial.html -->
+{% extends "base.html" %}
+{% block titulo %}Historial{% endblock %}
+{% block contenido %}
+{% set colores = {'consulta': 'bg-info text-dark', 'creacion': 'bg-success', 'actualizacion': 'bg-warning text-dark',
+'eliminacion': 'bg-danger'} %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-clock-history me-2"></i>Historial</h4>
+    <span class="text-muted small">Se conserva solo el último mes</span>
+</div>
+
+<form method="GET" class="row g-2 mb-3">
+    <div class="col-md-3">
+        <select name="accion" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">Todas las acciones</option>
+            {% for a in ['consulta', 'creacion', 'actualizacion', 'eliminacion'] %}
+            <option value="{{ a }}" {{ 'selected' if accion==a }}>{{ a|capitalize }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-6">
+        <input type="search" name="q" value="{{ texto }}" class="form-control form-control-sm"
+            placeholder="Buscar por usuario, módulo o detalle...">
+    </div>
+    <div class="col-md-3"><button class="btn btn-sm btn-outline-primary">Buscar</button></div>
+</form>
+
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size:.8rem;">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Usuario</th>
+                    <th>Acción</th>
+                    <th>Módulo</th>
+                    <th>Detalle</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in pagina.items %}
+                <tr>
+                    <td class="text-nowrap">{{ h.fecha.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>{{ h.usuario_correo or '—' }}<div class="text-muted" style="font-size:.7rem;">{{ h.rol or '' }}
+                        </div>
+                    </td>
+                    <td><span class="badge {{ colores.get(h.accion) }}">{{ h.accion|capitalize }}</span></td>
+                    <td>{{ h.modulo|replace('_', ' ')|capitalize }}</td>
+                    <td>{{ h.detalle }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">Sin registros.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if pagina.pages > 1 %}
+<div class="d-flex justify-content-between align-items-center mt-3">
+    {% if pagina.has_prev %}
+    <a class="btn btn-sm btn-outline-secondary"
+        href="{{ url_for('admin.historial', page=pagina.prev_num, accion=accion, q=texto) }}">← Anterior</a>
+    {% else %}<span></span>{% endif %}
+    <span class="small text-muted">Página {{ pagina.page }} de {{ pagina.pages }}</span>
+    {% if pagina.has_next %}
+    <a class="btn btn-sm btn-outline-secondary"
+        href="{{ url_for('admin.historial', page=pagina.next_num, accion=accion, q=texto) }}">Siguiente →</a>
+    {% else %}<span></span>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

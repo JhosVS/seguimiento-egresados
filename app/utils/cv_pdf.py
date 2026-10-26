@@ -9,13 +9,13 @@ from reportlab.platypus import (
     Spacer, Table, TableStyle, Image, FrameBreak, HRFlowable
 )
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT, TA_JUSTIFY
+from reportlab.lib.enums import TA_RIGHT, TA_JUSTIFY, TA_CENTER, TA_LEFT
 from urllib.parse import unquote
 from reportlab.lib.units import cm
 from xml.sax.saxutils import escape as _esc
 
 # ------------------------------------------------------------
-# PALETA DE COLORES (Inspirada en el modelo visual)
+# PALETA DE COLORES (CV PRINCIPAL)
 # ------------------------------------------------------------
 COLOR_TEXTO   = colors.HexColor('#292524')  # Charcoal cálido
 COLOR_TITULO  = colors.HexColor('#1c1917')  # Dark charcoal para nombres
@@ -26,7 +26,7 @@ ANCHO_SIDEBAR_PT = 185  # ~6.5 cm
 ANCHO_PAGINA, ALTO_PAGINA = A4
 
 # ------------------------------------------------------------
-# ESTILOS TIPOGRÁFICOS SANS-SERIF ESTILIZADOS Y REFINADOS
+# ESTILOS TIPOGRÁFICOS SANS-SERIF (CV PRINCIPAL - INTACTO)
 # ------------------------------------------------------------
 def _estilo(name, **kwargs):
     defaults = dict(fontName='Helvetica', fontSize=9.5, textColor=COLOR_TEXTO, leading=14)
@@ -36,25 +36,18 @@ def _estilo(name, **kwargs):
 ESTILOS = {
     'nombre': _estilo('Nombre', fontName='Helvetica-Bold', fontSize=18, leading=22, textColor=COLOR_TITULO, spaceAfter=3),
     'titulo_cv': _estilo('TitCV', fontName='Helvetica-Oblique', fontSize=10, textColor=COLOR_GRIS, spaceAfter=12),
-    
-    # Perfil profesional justificado
     'perfil': _estilo('Perfil', fontName='Helvetica', fontSize=9, leading=14.5, textColor=COLOR_TEXTO, alignment=TA_JUSTIFY, spaceAfter=12),
-    
     'sec_lat': _estilo('SecLat', fontName='Helvetica-Bold', fontSize=9.5, textColor=COLOR_TITULO, spaceBefore=14, spaceAfter=6),
     'txt_lat': _estilo('TxtLat', fontName='Helvetica', fontSize=8.5, leading=12.5, spaceAfter=4),
-    
-    'sec_main': _estilo('SecMain', fontName='Helvetica-Bold', fontSize=10.5, textColor=COLOR_TITULO, spaceBefore=15, spaceAfter=7),
-    
-    # Contenido con jerarquía visual refinada
+    'sec_main': _estilo('SecMain', fontName='Helvetica-Bold', fontSize=10.5, textColor=COLOR_TITULO, spaceBefore=0, spaceAfter=0),
     'item_tit': _estilo('ItemTit', fontName='Helvetica-Bold', fontSize=9.5, leading=13, textColor=COLOR_TEXTO, leftIndent=12),
     'item_sub': _estilo('ItemSub', fontName='Helvetica', fontSize=8.5, leading=12, textColor=COLOR_GRIS, leftIndent=12, spaceAfter=2),
     'item_bol': _estilo('ItemBol', fontName='Helvetica', fontSize=8.5, leading=13, leftIndent=22, spaceAfter=2),
-    
     'fecha_der': _estilo('FechaDer', fontName='Helvetica-Oblique', fontSize=8, textColor=COLOR_GRIS, alignment=TA_RIGHT),
 }
 
 # ------------------------------------------------------------
-# FONDO LATERAL COMPLETO (DE BORDE A BORDE)
+# FONDO LATERAL COMPLETO (CV PRINCIPAL)
 # ------------------------------------------------------------
 def _dibujar_fondo_sidebar(canvas, doc):
     canvas.saveState()
@@ -63,31 +56,62 @@ def _dibujar_fondo_sidebar(canvas, doc):
     canvas.restoreState()
 
 # ------------------------------------------------------------
-# HELPERS Y GENERADOR DE ÍCONOS MINIMALISTAS
+# HELPERS Y FORMATEADORES DE FECHA EN ESPAÑOL
 # ------------------------------------------------------------
+MESES_ES = {
+    1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+    5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+    9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+}
+
+def _formatear_fecha(fecha):
+    if not fecha:
+        return ''
+    mes = MESES_ES.get(fecha.month, '')
+    return f"{mes} {fecha.year}" if mes else str(fecha.year)
+
+def _icono_flecha():
+    from PIL import Image as PILImage, ImageDraw
+    size = 24
+    im = PILImage.new('RGBA', (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(im)
+    color = '#1c1917'
+    draw.polygon([(6, 6), (18, 12), (6, 18)], fill=color)
+    buf = io.BytesIO()
+    im.save(buf, format='PNG')
+    buf.seek(0)
+    return Image(buf, width=10, height=10)
+
+def _seccion_con_icono(titulo_texto):
+    t = Table([[_icono_flecha(), Paragraph(titulo_texto, ESTILOS['sec_main'])]], colWidths=[14, None])
+    t.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+    ]))
+    from reportlab.platypus import KeepTogether
+    return KeepTogether([Spacer(1, 14), t, Spacer(1, 6)])
+
 def _icono_contacto(tipo):
-    """Genera un ícono vectorial minimalista en memoria usando PIL."""
     from PIL import Image as PILImage, ImageDraw
     size = 28
     im = PILImage.new('RGBA', (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(im)
-    color = '#1c1917'  # Tono oscuro elegante
+    color = '#1c1917'
     
     if tipo == 'phone':
-        # Teléfono móvil simplificado
         draw.rounded_rectangle([8, 4, 20, 24], radius=3, outline=color, width=2)
         draw.line([12, 20, 16, 20], fill=color, width=2)
     elif tipo == 'email':
-        # Sobre de carta
         draw.rectangle([4, 7, 24, 21], outline=color, width=2)
         draw.line([4, 7, 14, 15], fill=color, width=2)
         draw.line([24, 7, 14, 15], fill=color, width=2)
     elif tipo == 'location':
-        # Alfiler de ubicación (Pin)
         draw.ellipse([8, 4, 20, 16], outline=color, width=2)
         draw.polygon([[14, 24], [8, 14], [20, 14]], outline=color, fill=None)
     elif tipo == 'linkedin':
-        # Ícono LinkedIn simplificado (cuadro con línea y punto)
         draw.rounded_rectangle([5, 5, 23, 23], radius=3, outline=color, width=2)
         draw.ellipse([8, 9, 11, 12], fill=color)
         draw.line([9, 14, 9, 20], fill=color, width=2)
@@ -129,7 +153,6 @@ def _foto_circular(ruta_relativa, diametro_px=600):
         draw = ImageDraw.Draw(lienzo)
         
         draw.ellipse((0, 0, tam_final - 1, tam_final - 1), outline='#a8a29e', width=6)
-        
         offset_in = 8
         draw.ellipse((offset_in, offset_in, tam_final - 1 - offset_in, tam_final - 1 - offset_in), outline='#ffffff', width=8)
         
@@ -166,22 +189,19 @@ def _procesar_idiomas(idiomas):
     return resultado
 
 def _correo_contacto(egresado):
-    """Correo personal; si no hay, el correo de acceso a la cuenta."""
     if egresado.correo_personal:
         return egresado.correo_personal
     return egresado.usuario.correo if egresado.usuario else None
 
 # ------------------------------------------------------------
-# GENERADOR PRINCIPAL
+# GENERADOR PRINCIPAL (CV CON SIDEBAR)
 # ------------------------------------------------------------
 def generar_cv(egresado, empleos, logros, certificados, habilidades=None, intereses=None, idiomas=None, titulo=None, perfil=None):
     habilidades, intereses, idiomas = habilidades or [], intereses or [], idiomas or []
     buf = io.BytesIO()
     
     doc = BaseDocTemplate(
-        buf,
-        pagesize=A4,
-        leftMargin=0, rightMargin=0, topMargin=0, bottomMargin=0
+        buf, pagesize=A4, leftMargin=0, rightMargin=0, topMargin=0, bottomMargin=0
     )
 
     frame_sidebar = Frame(
@@ -211,13 +231,11 @@ def generar_cv(egresado, empleos, logros, certificados, habilidades=None, intere
 
     story = []
 
-    # ================= 1. SIDEBAR (IZQUIERDA) =================
     foto = _foto_circular(egresado.foto)
     if foto:
         story.append(foto)
         story.append(Spacer(1, 10))
 
-    # Contacto con íconos vectoriales alineados en tabla
     story.append(Paragraph('CONTACTO', ESTILOS['sec_lat']))
     
     ancho_col_icono = 18
@@ -228,7 +246,7 @@ def generar_cv(egresado, empleos, logros, certificados, habilidades=None, intere
         t_item.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('LEFTPADDING', (0,0), (-1,-1), 0), ('RIGHTPADDING', (0,0), (-1,-1), 0), ('BOTTOMPADDING', (0,0), (-1,-1), 2), ('TOPPADDING', (0,0), (-1,-1), 2)]))
         story.append(t_item)
 
-        correo = _correo_contacto(egresado)
+    correo = _correo_contacto(egresado)
     if correo:
         t_item = Table([[_icono_contacto('email'), Paragraph(correo, ESTILOS['txt_lat'])]], colWidths=[ancho_col_icono, ancho_col_texto])
         t_item.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('LEFTPADDING', (0,0), (-1,-1), 0), ('RIGHTPADDING', (0,0), (-1,-1), 0), ('BOTTOMPADDING', (0,0), (-1,-1), 2), ('TOPPADDING', (0,0), (-1,-1), 2)]))
@@ -241,24 +259,24 @@ def generar_cv(egresado, empleos, logros, certificados, habilidades=None, intere
         story.append(t_item)
 
     if egresado.linkedin:
-        t_item = Table([[_icono_contacto('linkedin'), Paragraph(_extraer_identificador(egresado.linkedin, "linkedin"), ESTILOS['txt_lat'])]], colWidths=[ancho_col_icono, ancho_col_texto])
+        url_lk = egresado.linkedin if egresado.linkedin.startswith(('http://', 'https://')) else 'https://' + egresado.linkedin
+        txt_lk = _extraer_identificador(egresado.linkedin, "linkedin")
+        link_lk = f'<a href="{url_lk}">{txt_lk}</a>'
+        t_item = Table([[_icono_contacto('linkedin'), Paragraph(link_lk, ESTILOS['txt_lat'])]], colWidths=[ancho_col_icono, ancho_col_texto])
         t_item.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('LEFTPADDING', (0,0), (-1,-1), 0), ('RIGHTPADDING', (0,0), (-1,-1), 0), ('BOTTOMPADDING', (0,0), (-1,-1), 2), ('TOPPADDING', (0,0), (-1,-1), 2)]))
         story.append(t_item)
 
-    # Habilidades
     if habilidades:
         story.append(Paragraph('HABILIDADES', ESTILOS['sec_lat']))
         for h in habilidades:
             story.append(Paragraph(f'• {h.nombre}', ESTILOS['txt_lat']))
 
-    # Idiomas
     idiomas_finales = _procesar_idiomas(idiomas)
     if idiomas_finales:
         story.append(Paragraph('IDIOMAS', ESTILOS['sec_lat']))
         for nom, niv in idiomas_finales:
             story.append(Paragraph(f'• {nom}' + (f' ({niv})' if niv else ''), ESTILOS['txt_lat']))
 
-    # Intereses
     if intereses:
         story.append(Paragraph('INTERESES', ESTILOS['sec_lat']))
         for it in intereses:
@@ -266,26 +284,23 @@ def generar_cv(egresado, empleos, logros, certificados, habilidades=None, intere
 
     story.append(FrameBreak())
 
-    # ================= 2. PRINCIPAL (DERECHA) =================
     nombre_completo = f"{egresado.nombres} {egresado.apellido_paterno} {egresado.apellido_materno or ''}".strip()
     story.append(Paragraph(nombre_completo, ESTILOS['nombre']))
     story.append(Paragraph(titulo or egresado.titulo_cv or _sugerir_titulo(egresado), ESTILOS['titulo_cv']))
     
-    # Perfil Profesional (Justificado)
     perfil_texto = perfil if perfil is not None else egresado.perfil_profesional
     if perfil_texto:
-        story.append(Paragraph('PERFIL PROFESIONAL', ESTILOS['sec_main']))
+        story.append(_seccion_con_icono('PERFIL PROFESIONAL'))
         story.append(Paragraph(perfil_texto, ESTILOS['perfil']))
 
     ancho_tabla = ancho_neto_main - 27
 
-    # Experiencia Laboral
     if empleos:
-        story.append(Paragraph('EXPERIENCIA LABORAL', ESTILOS['sec_main']))
+        story.append(_seccion_con_icono('EXPERIENCIA LABORAL'))
         for emp in empleos:
             empresa = getattr(emp, 'empresa_nombre', None) or (emp.empresa.nombre if hasattr(getattr(emp, 'empresa', None), 'nombre') else str(getattr(emp, 'empresa', '—')))
-            inicio = emp.fecha_inicio.strftime('%m/%Y') if emp.fecha_inicio else ''
-            fin = 'Actualidad' if emp.es_actual else (emp.fecha_fin.strftime('%m/%Y') if emp.fecha_fin else '')
+            inicio = _formatear_fecha(emp.fecha_inicio) if emp.fecha_inicio else ''
+            fin = 'Actualidad' if getattr(emp, 'es_actual', False) else (_formatear_fecha(emp.fecha_fin) if emp.fecha_fin else '')
             rango = f"{inicio} – {fin}" if inicio or fin else ""
 
             t_data = [
@@ -306,11 +321,10 @@ def generar_cv(egresado, empleos, logros, certificados, habilidades=None, intere
                 story.append(Paragraph(f'• {linea}', ESTILOS['item_bol']))
             story.append(Spacer(1, 5))
 
-    # Formación Académica
     if logros:
-        story.append(Paragraph('FORMACIÓN ACADÉMICA', ESTILOS['sec_main']))
+        story.append(_seccion_con_icono('FORMACIÓN ACADÉMICA'))
         for l in logros:
-            fecha = l.fecha_obtencion.strftime('%Y') if l.fecha_obtencion else ''
+            fecha = _formatear_fecha(l.fecha_obtencion) if l.fecha_obtencion else ''
             t_data = [
                 [Paragraph(f"<b>{_formatear_texto(l.grado_titulo)}</b>", ESTILOS['item_tit']), Paragraph(fecha, ESTILOS['fecha_der'])],
                 [Paragraph(_formatear_texto(l.institucion), ESTILOS['item_sub']), '']
@@ -326,12 +340,11 @@ def generar_cv(egresado, empleos, logros, certificados, habilidades=None, intere
             story.append(t)
             story.append(Spacer(1, 5))
 
-    # Certificaciones
     if certificados:
-        story.append(Paragraph('CERTIFICACIONES', ESTILOS['sec_main']))
+        story.append(_seccion_con_icono('CERTIFICACIONES'))
         for c in certificados:
             nom_cert = c.nombre_mostrar() if hasattr(c, 'nombre_mostrar') and callable(getattr(c, 'nombre_mostrar')) else getattr(c, 'nombre', '')
-            fecha = c.fecha_emision.strftime('%m/%Y') if c.fecha_emision else ''
+            fecha = _formatear_fecha(c.fecha_emision) if c.fecha_emision else ''
             institucion_c = getattr(c, 'institucion_emisora', '')
             
             t_data = [
@@ -355,53 +368,39 @@ def generar_cv(egresado, empleos, logros, certificados, habilidades=None, intere
 
 
 # ------------------------------------------------------------
-# CV SIMPLE / ATS MODERNO (Refinado y estilizado)
+# ESTILOS TIPOGRÁFICOS TIMES NEW ROMAN (CV ALTERNATIVO OPTIMIZADO 1 HOJA)
 # ------------------------------------------------------------
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import cm
-from reportlab.lib.enums import TA_JUSTIFY
-import io
-
-def _estilo_simple(name, **kwargs):
-    defaults = dict(fontName='Helvetica', fontSize=10, leading=14.5, textColor=colors.HexColor('#1e293b'))
-    defaults.update(kwargs)
-    return ParagraphStyle(name, **defaults)
-
 ESTILOS_SIMPLE = {
-    # Encabezado principal
-    'nombre':   _estilo_simple('SNombre', fontName='Helvetica-Bold', fontSize=18, leading=22, textColor=colors.HexColor('#0f172a'), spaceAfter=3),
-    'puesto':   _estilo_simple('SPuesto', fontName='Helvetica-Bold', fontSize=11, leading=15, textColor=colors.HexColor('#2563eb'), spaceAfter=5),
-    'contacto': _estilo_simple('SContacto', fontName='Helvetica', fontSize=9, leading=13.5, textColor=colors.HexColor('#64748b'), spaceAfter=4),
-    
-    # Secciones principales
-    'seccion':  _estilo_simple('SSeccion', fontName='Helvetica-Bold', fontSize=11, leading=15,
-                               textColor=colors.HexColor('#0f172a'), spaceBefore=14, spaceAfter=5, keepWithNext=True),
-    
-    # Contenidos y bloques
-    'texto':    _estilo_simple('STexto', fontName='Helvetica', fontSize=9.5, leading=14, alignment=TA_JUSTIFY),
-    'item':     _estilo_simple('SItem', fontName='Helvetica-Bold', fontSize=10, leading=14, textColor=colors.HexColor('#0f172a'), keepWithNext=True),
-    'detalle':  _estilo_simple('SDetalle', fontName='Helvetica-Oblique', fontSize=9, leading=13, textColor=colors.HexColor('#64748b'), spaceAfter=3),
-    'vineta':   _estilo_simple('SVineta', fontName='Helvetica', fontSize=9.5, leading=14, leftIndent=12, bulletIndent=4, spaceAfter=2),
+    'nombre':     _estilo('SNombre', fontName='Times-Bold', fontSize=16, leading=24, textColor=colors.black, alignment=TA_CENTER, spaceAfter=2),
+    'puesto':     _estilo('SPuesto', fontName='Times-Bold', fontSize=11, leading=16, textColor=colors.black, alignment=TA_CENTER, spaceAfter=3),
+    'contacto':   _estilo('SContacto', fontName='Times-Roman', fontSize=9.5, leading=14, textColor=colors.black, alignment=TA_CENTER, spaceAfter=3),
+    'seccion':    _estilo('SSeccion', fontName='Times-Bold', fontSize=13, leading=19, textColor=colors.black, spaceBefore=3, spaceAfter=4, keepWithNext=True),
+    'texto':      _estilo('STexto', fontName='Times-Roman', fontSize=9.5, leading=14.5, alignment=TA_JUSTIFY),
+    'item':       _estilo('SItem', fontName='Times-Bold', fontSize=9.5, leading=14.5, textColor=colors.black, keepWithNext=True),
+    'detalle':    _estilo('SDetalle', fontName='Times-Italic', fontSize=9.5, leading=14.5, textColor=colors.black),
+    'fecha_der':  _estilo('SFechaDer', fontName='Times-Bold', fontSize=9.5, leading=14.5, textColor=colors.black, alignment=TA_RIGHT),
+    'vineta':     _estilo('SVineta', fontName='Times-Roman', fontSize=9.5, leading=14.5, leftIndent=12, bulletIndent=4, spaceAfter=1),
+    'idioma_niv': _estilo('SIdiNiv', fontName='Times-Roman', fontSize=9.5, leading=14.5, alignment=TA_LEFT),
 }
 
-
 def _t(texto):
-    """Texto seguro para Paragraph."""
     return _esc(texto or '')
 
-
 def _rango_empleo(emp):
-    inicio = emp.fecha_inicio.strftime('%m/%Y') if getattr(emp, 'fecha_inicio', None) else ''
-    fin = 'Actualidad' if getattr(emp, 'es_actual', False) else (emp.fecha_fin.strftime('%m/%Y') if getattr(emp, 'fecha_fin', None) else '')
+    inicio = _formatear_fecha(getattr(emp, 'fecha_inicio', None))
+    fin = 'Actualidad' if getattr(emp, 'es_actual', False) else _formatear_fecha(getattr(emp, 'fecha_fin', None))
     return f'{inicio} – {fin}' if inicio or fin else ''
 
+def _agregar_separador(story):
+    # Espaciado optimizado para mantener apariencia limpia pero ajustar todo a 1 hoja
+    story.append(Spacer(1, 5))
+    story.append(HRFlowable(width='100%', thickness=0.6, color=colors.black, spaceBefore=2, spaceAfter=6))
 
+# ------------------------------------------------------------
+# CV SIMPLE / ALTERNATIVO (COMPACTADO PARA 1 PÁGINA)
+# ------------------------------------------------------------
 def generar_cv_simple(egresado, puesto, resumen='', empleos=None, logros=None,
                       certificados=None, habilidades=None, idiomas=None):
-    """CV ATS optimizado con jerarquía limpia, espaciado perfecto y tipografía clara."""
     empleos, logros, certificados = empleos or [], logros or [], certificados or []
     habilidades, idiomas = habilidades or [], idiomas or []
     S = ESTILOS_SIMPLE
@@ -410,94 +409,153 @@ def generar_cv_simple(egresado, puesto, resumen='', empleos=None, logros=None,
         f"{egresado.nombres} {egresado.apellido_paterno} {egresado.apellido_materno or ''}".strip())
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=2.0*cm, rightMargin=2.0*cm,
-                            topMargin=1.8*cm, bottomMargin=1.8*cm,
-                            title=f'CV - {nombre}', author=nombre)
+    # Márgenes reducidos ligeramente a 1.4 cm para ganar área útil vertical
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4, leftMargin=1.6*cm, rightMargin=1.6*cm,
+        topMargin=1.4*cm, bottomMargin=1.4*cm,
+        title=f'CV - {nombre}', author=nombre
+    )
     story = []
 
-    # --- ENCABEZADO ---
+    ancho_util = A4[0] - 3.2*cm
+
+    # Encabezado Centrado
     story.append(Paragraph(_t(nombre), S['nombre']))
     if puesto:
         story.append(Paragraph(_t(puesto), S['puesto']))
 
     ubicacion = ', '.join(filter(None, [getattr(egresado, 'distrito', None), getattr(egresado, 'provincia', None)]))
-    linkedin = (getattr(egresado, 'linkedin', '') or '').replace('https://', '').replace('http://', '').rstrip('/')
-    contacto_items = [c for c in [ubicacion, getattr(egresado, 'telefono', None), _correo_contacto(egresado), linkedin] if c]
     
+    linkedin_link = ''
+    linkedin_raw = getattr(egresado, 'linkedin', '') or ''
+    if linkedin_raw:
+        url_lk = linkedin_raw if linkedin_raw.startswith(('http://', 'https://')) else 'https://' + linkedin_raw
+        txt_lk = linkedin_raw.replace('https://', '').replace('http://', '').rstrip('/')
+        linkedin_link = f'<a href="{url_lk}">{txt_lk}</a>'
+
+    contacto_items = [c for c in [ubicacion, getattr(egresado, 'telefono', None), _correo_contacto(egresado), linkedin_link] if c]
     if contacto_items:
-        # Se usa ' • ' sin entidades HTML como &nbsp; para evitar fallos de codificación
         linea_contacto = '  •  '.join(contacto_items)
-        story.append(Paragraph(_t(linea_contacto), S['contacto']))
+        story.append(Paragraph(linea_contacto, S['contacto']))
 
-    story.append(Spacer(1, 2))
-    story.append(HRFlowable(width='100%', thickness=0.8, color=colors.HexColor('#cbd5e1'), spaceBefore=2, spaceAfter=10))
+    _agregar_separador(story)
 
-    # --- RESUMEN PROFESIONAL ---
+    # Perfil Profesional
     if resumen and resumen.strip():
-        story.append(Paragraph('RESUMEN PROFESIONAL', S['seccion']))
+        story.append(Paragraph('PERFIL PROFESIONAL', S['seccion']))
         story.append(Paragraph(_t(resumen.strip()).replace('\n', '<br/>'), S['texto']))
-        story.append(Spacer(1, 4))
+        _agregar_separador(story)
 
-    # --- EXPERIENCIA LABORAL ---
+    # Experiencia Laboral
     if empleos:
         story.append(Paragraph('EXPERIENCIA LABORAL', S['seccion']))
         for emp in empleos:
             empresa_txt = _formatear_texto(getattr(emp, 'empresa_nombre', '')) or (emp.empresa.nombre if hasattr(getattr(emp, 'empresa', None), 'nombre') else str(getattr(emp, 'empresa', '')))
             rango = _rango_empleo(emp)
-            
-            detalle_partes = [p for p in [empresa_txt, rango] if p]
-            detalle = '  |  '.join(detalle_partes)
+            cargo_txt = _formatear_texto(getattr(emp, 'cargo', ''))
 
-            story.append(Paragraph(_t(_formatear_texto(getattr(emp, 'cargo', ''))), S['item']))
-            if detalle:
-                story.append(Paragraph(_t(detalle), S['detalle']))
+            t_data = [
+                [Paragraph(f"<b>{_t(cargo_txt)}</b>", S['item']), Paragraph(f"<b>{_t(rango)}</b>", S['fecha_der'])],
+                [Paragraph(_t(empresa_txt), S['detalle']), '']
+            ]
+            t = Table(t_data, colWidths=[ancho_util - 110, 110])
+            t.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+                ('TOPPADDING', (0,0), (-1,-1), 0),
+            ]))
+            story.append(t)
             
             funciones_texto = getattr(emp, 'funciones', '')
             for linea in _lineas_a_bullets(funciones_texto):
                 story.append(Paragraph(_t(linea), S['vineta'], bulletText='•'))
-            story.append(Spacer(1, 6))
+            story.append(Spacer(1, 2))
+        
+        _agregar_separador(story)
 
-    # --- FORMACIÓN ACADÉMICA ---
+    # Formación Académica
     if logros:
         story.append(Paragraph('FORMACIÓN ACADÉMICA', S['seccion']))
         for l in logros:
-            anio = l.fecha_obtencion.strftime('%Y') if hasattr(l, 'fecha_obtencion') and l.fecha_obtencion else ''
+            fecha_logro = _formatear_fecha(getattr(l, 'fecha_obtencion', None))
             inst = _formatear_texto(getattr(l, 'institucion', ''))
-            detalle_partes = [p for p in [inst, anio] if p]
-            detalle = '  |  '.join(detalle_partes)
+            titulo_grado = _formatear_texto(getattr(l, 'grado_titulo', ''))
 
-            story.append(Paragraph(_t(_formatear_texto(getattr(l, 'grado_titulo', ''))), S['item']))
-            if detalle:
-                story.append(Paragraph(_t(detalle), S['detalle']))
-            story.append(Spacer(1, 5))
+            t_data = [
+                [Paragraph(f"<b>{_t(titulo_grado)}</b>", S['item']), Paragraph(f"<b>{_t(fecha_logro)}</b>", S['fecha_der'])],
+                [Paragraph(_t(inst), S['detalle']), '']
+            ]
+            t = Table(t_data, colWidths=[ancho_util - 110, 110])
+            t.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+                ('TOPPADDING', (0,0), (-1,-1), 0),
+            ]))
+            story.append(t)
+            story.append(Spacer(1, 2))
 
-    # --- FORMACIÓN COMPLEMENTARIA ---
+        _agregar_separador(story)
+
+    # Formación Complementaria
     if certificados:
         story.append(Paragraph('FORMACIÓN COMPLEMENTARIA', S['seccion']))
         for c in certificados:
             nom_c = c.nombre_mostrar() if hasattr(c, 'nombre_mostrar') and callable(getattr(c, 'nombre_mostrar')) else getattr(c, 'nombre', '')
             texto = _formatear_texto(nom_c)
             inst_c = getattr(c, 'institucion_emisora', '')
+            fecha_cert = _formatear_fecha(getattr(c, 'fecha_emision', None)) if hasattr(c, 'fecha_emision') and c.fecha_emision else ''
+
             if inst_c:
                 texto += f' — {_formatear_texto(inst_c)}'
-            if hasattr(c, 'fecha_emision') and c.fecha_emision:
-                texto += f" ({c.fecha_emision.strftime('%m/%Y')})"
-            story.append(Paragraph(_t(texto), S['vineta'], bulletText='•'))
-        story.append(Spacer(1, 4))
 
-    # --- HABILIDADES ---
+            t_data = [
+                [Paragraph(_t(texto), S['texto']), Paragraph(f"<b>{_t(fecha_cert)}</b>", S['fecha_der'])]
+            ]
+            t = Table(t_data, colWidths=[ancho_util - 110, 110])
+            t.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+                ('TOPPADDING', (0,0), (-1,-1), 0),
+            ]))
+            story.append(t)
+            story.append(Spacer(1, 1))
+
+        _agregar_separador(story)
+
+    # Habilidades en lista de viñetas
     if habilidades:
         story.append(Paragraph('HABILIDADES', S['seccion']))
-        habilidades_str = ', '.join(h.nombre for h in habilidades if hasattr(h, 'nombre'))
-        story.append(Paragraph(_t(habilidades_str), S['texto']))
-        story.append(Spacer(1, 4))
+        for h in habilidades:
+            if hasattr(h, 'nombre') and h.nombre:
+                story.append(Paragraph(_t(h.nombre), S['vineta'], bulletText='•'))
+        _agregar_separador(story)
 
-    # --- IDIOMAS ---
+    # Idiomas en lista
     idiomas_finales = _procesar_idiomas(idiomas)
     if idiomas_finales:
         story.append(Paragraph('IDIOMAS', S['seccion']))
-        idiomas_str = ', '.join(f'{n} ({v})' if v else n for n, v in idiomas_finales)
-        story.append(Paragraph(_t(idiomas_str), S['texto']))
+        tabla_idiomas = []
+        for nom, niv in idiomas_finales:
+            tabla_idiomas.append([
+                Paragraph(f"• {_t(nom)}", S['vineta']),
+                Paragraph(_t(niv or ''), S['idioma_niv'])
+            ])
+        
+        t_idiomas = Table(tabla_idiomas, colWidths=[180, ancho_util - 180])
+        t_idiomas.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+        ]))
+        story.append(t_idiomas)
 
     doc.build(story)
     buf.seek(0)

@@ -1,6 +1,6 @@
 # app/auth/routes.py
 import os
-from flask import render_template, redirect, url_for, flash, request, session, current_app
+from flask import render_template, redirect, url_for, flash, request, session, current_app, send_from_directory, abort, current_app
 
 import hashlib
 import re
@@ -9,7 +9,6 @@ import unicodedata
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
-from flask import render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -17,10 +16,12 @@ from sqlalchemy.exc import IntegrityError
 from app.auth import auth
 from app.auth.forms import (LoginForm, VerificarForm, RegistroForm, RecuperarForm, NuevaContrasenaForm, CambiarContrasenaForm)
 from app.extensions import db, bcrypt
-from app.models import Usuario, Egresado, ProgramaEstudio, Curricula
+from app.models import Usuario, Egresado, ProgramaEstudio, Curricula, Certificado
 # from app.models import Facultad   # solo para el modo multi-programa (ver _resolver_curricula)
 from app.utils.api_undac import consultar_api_undac
 from app.utils.email import enviar_correo_recuperacion
+from app.admin.roles import ROLES_HABILITADOS
+from app.utils.historial import registrar
 
 # Campos del formulario de registro que se copian al egresado
 CAMPOS_PERFIL = ['nombres', 'apellido_paterno', 'apellido_materno',
@@ -121,30 +122,6 @@ def _resolver_curricula(datos):
     programa = ProgramaEstudio.query.filter_by(
         nombre=_normalizar(datos.get('Programa facultad'))).first()
 
-    # ---- MODO MULTI-PROGRAMA (activar cuando el sistema escale) --------------
-    # Crea también el programa si falta. Formato de la currícula: año(2) + 'A' + código
-    #   17A4SI -> año 2017, programa '4SI', facultad '4' (dígitos iniciales).
-    # La facultad NO se crea sola: la API no manda su nombre.
-    #
-    # m = re.fullmatch(r'(\d{2})A((\d+)[A-Z][A-Z0-9-]*)', nombre.upper())
-    # if not m:
-    #     return None
-    # cod_programa, cod_facultad = m.group(2), m.group(3)
-    # programa = ProgramaEstudio.query.filter_by(codigo=cod_programa).first()
-    # if programa is None:
-    #     facultad = Facultad.query.filter_by(codigo=cod_facultad).first()
-    #     nombre_programa = _normalizar(datos.get('Programa facultad'))
-    #     if facultad is None or not nombre_programa:
-    #         return None
-    #     programa = ProgramaEstudio.query.filter_by(
-    #         id_facultad=facultad.id_facultad, nombre=nombre_programa).first()
-    #     if programa is None:
-    #         programa = ProgramaEstudio(id_facultad=facultad.id_facultad,
-    #                                    nombre=nombre_programa, codigo=cod_programa)
-    #         db.session.add(programa)
-    #         db.session.flush()
-    # --------------------------------------------------------------------------
-
     if not m or not programa:
         return None
 
@@ -171,6 +148,8 @@ def login():
             flash('Correo o contraseña incorrectos.', 'danger')
         elif not usuario.is_active:
             flash('Tu cuenta está inactiva. Contacta con soporte.', 'danger')
+        elif usuario.es_personal and usuario.rol not in ROLES_HABILITADOS:
+            flash('Tu rol aún no está habilitado en el sistema. Contacta con el administrador.', 'warning')
         else:
             login_user(usuario)
             usuario.ultimo_acceso = func.now()
@@ -184,6 +163,7 @@ def login():
 @login_required
 def logout():
     logout_user()
+    session.permanent = True
     flash('Sesión cerrada correctamente.', 'info')
     return redirect(url_for('auth.login'))
 
@@ -336,8 +316,27 @@ def cambiar_contrasena():
         else:
             current_user.contrasena_hash = _hash_password(form.contrasena.data)
             current_user.ultimo_cambio_password = func.now()
+            registrar('actualizacion', 'cuenta', 'Cambió su contraseña')
             db.session.commit()
             flash('Contraseña actualizada correctamente.', 'success')
             return redirect(url_destino_usuario(current_user))
 
     return render_template('auth/cambiar_contrasena.html', form=form)
+
+# ------------------------------------------------------------
+# PDF de certificados (los ve su dueño o el personal)
+# ------------------------------------------------------------
+@auth.route('/certificados/<int:id>/archivo')
+@login_required
+def archivo_certificado(id):
+    cert = db.session.get(Certificado, id)
+    if cert is None or not cert.ruta_archivo:
+        abort(404)
+    if not (current_user.es_personal or cert.id_egresado == current_user.id_egresado):
+        abort(403)
+
+    if current_user.es_personal:     # el dueño viendo su propio PDF no se registra
+        registrar('consulta', 'formacion_complementaria', f'Abrió el PDF de "{cert.nombre}" de {cert.egresado.nombre_completo}', guardar=True)
+
+    carpeta = os.path.join(current_app.instance_path, 'certificados')
+    return send_from_directory(carpeta, os.path.basename(cert.ruta_archivo), mimetype='application/pdf', download_name=f'certificado-{cert.id_certificado}.pdf')

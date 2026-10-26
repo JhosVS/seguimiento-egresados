@@ -22,6 +22,7 @@ LIMITE_PLAN = 200                       # consultas por mes del plan
 MARGEN = 20                             # colchón por si algo falla
 MAX_MENSUAL = LIMITE_PLAN - MARGEN      # tope real: 180
 VIGENCIA_DIAS = 21                      # cuánto dura una oferta tras verla (semanal + colchón)
+MAX_OFERTAS = 600                       # Un limite de oferta en la db
 
 # Contador local (archivo en la carpeta instance/)
 ARCHIVO_USO = os.path.abspath(
@@ -116,6 +117,18 @@ def _limpiar_url(raw_url):
     # Quita parámetros de rastreo (?utm_...) que causan bloqueos 403
     return raw_url.split('?utm_')[0].split('&utm_')[0]
 
+def _depurar_ofertas(hoy, maximo=MAX_OFERTAS):
+    """Si hay más de `maximo` ofertas, borra las automáticas ya vencidas (nunca las activas ni las manuales)."""
+    exceso = OfertaLaboral.query.count() - maximo
+    if exceso <= 0:
+        return 0
+    ids = [i for (i,) in db.session.query(OfertaLaboral.id_oferta)
+           .filter(OfertaLaboral.fuente == 'automatico', OfertaLaboral.fecha_vencimiento < hoy)
+           .order_by(OfertaLaboral.fecha_vencimiento.asc()).limit(exceso).all()]
+    if ids:
+        OfertaLaboral.query.filter(OfertaLaboral.id_oferta.in_(ids)).delete(synchronize_session=False)
+        db.session.commit()
+    return len(ids)
 
 # ============================================================
 # SINCRONIZACIÓN
@@ -238,6 +251,7 @@ def sincronizar_empleos_externos(plan=None, max_busquedas=36):
         resumen["por_pais"][pais] = resumen["por_pais"].get(pais, 0) + nuevos_aqui
         print(f"🔎 {busqueda['q']} | {busqueda['location']}: {nuevos_aqui} nuevas")
 
+    resumen['depuradas'] = _depurar_ofertas(hoy)
     print(f"!!!! Sincronización terminada: {resumen['nuevos']} nuevas, "
           f"{resumen['renovados']} renovadas, {resumen['descartados']} descartadas. "
           f"Uso del mes: {uso['usadas']}/{MAX_MENSUAL}")

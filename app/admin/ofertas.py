@@ -11,18 +11,20 @@ from app.admin import admin
 from app.auth.decorators import requiere_rol
 from app.extensions import db
 from app.models import OfertaLaboral, Sector
+from app.utils.historial import registrar
 
-ROLES = ('administrador', 'coordinador', 'utsag')
+ROLES = ('administrador', 'coordinador')
 EXT_IMAGEN = {'png', 'jpg', 'jpeg', 'webp'}
 
 
 def _guardar_imagen(archivo):
-    """Guarda la imagen en static/uploads/ofertas y devuelve la ruta relativa a static."""
+    """Guarda la imagen en instance/uploads/ofertas y devuelve la ruta relativa."""
     nombre = archivo.filename or ''
     ext = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
     if ext not in EXT_IMAGEN:
         return None
-    carpeta = os.path.join(current_app.static_folder, 'uploads', 'ofertas')
+    # Cambiado a instance_path
+    carpeta = os.path.join(current_app.instance_path, 'uploads', 'ofertas')
     os.makedirs(carpeta, exist_ok=True)
     archivo_final = f'{uuid.uuid4().hex}.{ext}'
     archivo.save(os.path.join(carpeta, archivo_final))
@@ -114,6 +116,10 @@ def nueva_oferta():
             imagen = request.files.get('imagen')
             if imagen and imagen.filename:
                 oferta.ruta_imagen = _guardar_imagen(imagen)
+
+            # Historial auditoria
+            registrar('creacion', 'ofertas', f'Publicó la oferta "{oferta.titulo}" ({oferta.empresa_nombre})')
+
             db.session.add(oferta)
             db.session.commit()
             flash('Oferta publicada correctamente.', 'success')
@@ -143,6 +149,9 @@ def editar_oferta(id):
                 if nueva:
                     oferta.ruta_imagen = nueva
 
+            # Historial auditoria
+            registrar('actualizacion', 'ofertas', f'Actualizó la oferta "{oferta.titulo}"')
+
             db.session.commit()
             flash('Oferta actualizada.', 'success')
             return redirect(url_for('admin.ofertas'))
@@ -156,6 +165,10 @@ def editar_oferta(id):
 def toggle_oferta(id):
     oferta = db.get_or_404(OfertaLaboral, id)
     oferta.activa = not oferta.activa
+
+    # Historial auditoria
+    registrar('actualizacion', 'ofertas', f'{"Activó" if oferta.activa else "Desactivó"} la oferta "{oferta.titulo}"')
+
     db.session.commit()
     flash(f'Oferta {"activada" if oferta.activa else "desactivada"}.', 'info')
     return redirect(url_for('admin.ofertas',

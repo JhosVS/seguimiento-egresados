@@ -108,21 +108,21 @@
                 </div>
 
                 <div class="col-sm-6 col-md-3">
-                    <label class="form-label text-muted small mb-1">Año de Egreso</label>
-                    <select name="anio_egreso" class="form-select form-select-sm">
-                        <option value="">Todos los años</option>
-                        {% for a in anios_eg %}
-                        <option value="{{ a }}" {{ 'selected' if filtros.get('anio_egreso')==(a|string) }}>{{ a }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="col-sm-6 col-md-3">
                     <label class="form-label text-muted small mb-1">Año de Ingreso</label>
                     <select name="anio_ingreso" class="form-select form-select-sm">
                         <option value="">Todos los años</option>
                         {% for a in anios_ing %}
                         <option value="{{ a }}" {{ 'selected' if filtros.get('anio_ingreso')==(a|string) }}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-sm-6 col-md-3">
+                    <label class="form-label text-muted small mb-1">Año de Egreso</label>
+                    <select name="anio_egreso" class="form-select form-select-sm">
+                        <option value="">Todos los años</option>
+                        {% for a in anios_eg %}
+                        <option value="{{ a }}" {{ 'selected' if filtros.get('anio_egreso')==(a|string) }}>{{ a }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -134,20 +134,6 @@
                         {% for c in curriculas %}
                         <option value="{{ c }}" {{ 'selected' if filtros.get('curricula')==c }}>{{ c }}</option>
                         {% endfor %}
-                    </select>
-                </div>
-
-                <div class="col-sm-6 col-md-3">
-                    <label class="form-label text-muted small mb-1">Período de egreso</label>
-                    <select name="letra_periodo" class="form-select form-select-sm">
-                        <option value="">Todas</option>
-                        <option value="A" {{ 'selected' if filtros.get('letra_periodo')=='A' }}>A — Impar</option>
-                        <option value="B" {{ 'selected' if filtros.get('letra_periodo')=='B' }}>B — Par</option>
-                        <option value="D" {{ 'selected' if filtros.get('letra_periodo')=='D' }}>D — Aplazados impar</option>
-                        <option value="E" {{ 'selected' if filtros.get('letra_periodo')=='E' }}>E — Aplazados par</option>
-                        <option value="S" {{ 'selected' if filtros.get('letra_periodo')=='S' }}>S — Subsanación</option>
-                        <option value="N" {{ 'selected' if filtros.get('letra_periodo')=='N' }}>N — Nivelación</option>
-                        <option value="J" {{ 'selected' if filtros.get('letra_periodo')=='J' }}>J — Dirigido</option>
                     </select>
                 </div>
 
@@ -183,6 +169,7 @@
                     <tr>
                         <th class="ps-3 border-0" style="width: 40px;">#</th>
                         <th class="border-0">Apellidos y Nombres</th>
+                        <th class="border-0">Año de Ingreso</th>
                         <th class="border-0">Año de Egreso</th>
                         <th class="border-0">Contacto</th>
                         <th class="border-0">Nivel Máximo</th>
@@ -196,6 +183,7 @@
                     <td class="fw-semibold text-dark">
                         {{ e.apellido_paterno }} {{ e.apellido_materno or '' }}, {{ e.nombres }}
                     </td>
+                    <td>{{ e.anio_ingreso or '—' }}</td>
                     <td>{{ e.anio_egreso or '—' }}</td>
                     <td>
                         <div>{{ e.usuario.correo if e.usuario else (e.correo_personal or '—') }}</div>

@@ -19,7 +19,6 @@
                         <th>Nombre</th>
                         <th>Correo</th>
                         <th>Rol</th>
-                        <th>Ámbito</th>
                         <th>Estado</th>
                         <th></th>
                     </tr>
@@ -33,20 +32,11 @@
                     </td>
                     <td class="small">{{ usuario.correo }}</td>
                     <td>
-                        <span class="badge
-                            {% if persona.rol.nombre in ['administrador','utsag'] %}bg-danger
-                            {% elif persona.rol.nombre == 'coordinador' %}bg-primary
-                            {% else %}bg-secondary{% endif %}">
-                            {{ persona.rol.nombre|replace('_', ' ')|capitalize }}
-                        </span>
-                    </td>
-                    <td>
-                        {% if persona.facultad %}
-                            <span class="badge bg-light text-dark border">{{ persona.facultad.nombre }}</span>
-                        {% elif persona.programa %}
-                            <span class="badge bg-light text-dark border">{{ persona.programa.nombre }}</span>
+                        {% if persona.rol.nombre in roles_habilitados %}
+                            <span class="badge bg-danger">{{ persona.rol.nombre|replace('_', ' ')|capitalize }}</span>
                         {% else %}
-                            <span class="text-muted small">Global</span>
+                            <span class="badge bg-secondary">{{ persona.rol.nombre|replace('_', ' ')|capitalize }}</span>
+                            <div class="text-muted" style="font-size:.7rem;">No habilitado</div>
                         {% endif %}
                     </td>
                     <td>
@@ -61,7 +51,7 @@
                             </a>
                             {% if persona.id_personal == current_user.id_personal %}
                                 <span class="badge bg-light text-muted border align-self-center px-2"><i class="bi bi-person-check"></i> Tú</span>
-                            {% elif persona.id_personal == 1 %}
+                            {% elif persona.id_personal == id_nativa %}
                                 <span class="badge bg-light text-muted border align-self-center px-2"><i class="bi bi-shield-lock"></i> Protegida</span>
                             {% else %}
                                 <form method="POST" action="{{ url_for('admin.toggle_personal', id=persona.id_personal) }}">
@@ -82,13 +72,7 @@
         {% else %}
         <div class="text-center text-muted py-5">
             <i class="bi bi-person-badge fs-1"></i>
-            <p class="mt-2">
-                {% if rol_activo == 'coordinador' %}No tienes docentes responsables a tu cargo todavía.
-                {% else %}No hay personal registrado aún.{% endif %}
-            </p>
-            <a href="{{ url_for('admin.nuevo_personal') }}" class="btn btn-primary btn-sm">
-                <i class="bi bi-plus-lg me-1"></i>Crear cuenta
-            </a>
+            <p class="mt-2">No hay personal registrado aún.</p>
         </div>
         {% endif %}
     </div>
