@@ -2,88 +2,157 @@
 {%- set p = persona if persona is defined and persona else none -%}
 {%- set d = datos if datos is defined and datos else none -%}
 
-<div class="card border-0 shadow-sm mb-3">
-    <div class="card-header bg-primary text-white"><i class="bi bi-person-vcard me-2"></i>Datos personales</div>
-    <div class="card-body">
+<!-- ==========================================
+     1. SECCIÓN: DATOS PERSONALES
+     ========================================== -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-transparent border-bottom py-3">
+        <h6 class="mb-0 fw-bold text-primary d-flex align-items-center">
+            <i class="bi bi-person-vcard fs-5 me-2"></i>Datos personales
+        </h6>
+    </div>
+    <div class="card-body p-4">
         <div class="row g-3">
-            <div class="col-sm-6">
-                <label class="form-label">Nombres <span class="text-danger">*</span></label>
-                <input type="text" name="nombres" class="form-control" required
-                       value="{{ d.get('nombres', '') if d else (p.nombres if p else '') }}">
+            <!-- Nombres -->
+            <div class="col-12">
+                <label class="form-label fw-medium small">Nombres <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-person"></i></span>
+                    <input type="text" name="nombres" class="form-control" required
+                           placeholder="Ej. Juan Carlos"
+                           value="{{ d.get('nombres', '') if d else (p.nombres if p else '') }}">
+                </div>
             </div>
-            <div class="col-sm-6">
-                <label class="form-label">DNI</label>
-                <input type="text" name="dni" class="form-control" maxlength="8" pattern="\d{8}" title="8 dígitos"
-                       value="{{ d.get('dni', '') if d else (p.dni if p and p.dni else '') }}">
-            </div>
-            <div class="col-sm-6">
-                <label class="form-label">Apellido paterno <span class="text-danger">*</span></label>
+
+            <!-- Apellido Paterno -->
+            <div class="col-md-6">
+                <label class="form-label fw-medium small">Apellido paterno <span class="text-danger">*</span></label>
                 <input type="text" name="apellido_paterno" class="form-control" required
+                       placeholder="Ej. Pérez"
                        value="{{ d.get('apellido_paterno', '') if d else (p.apellido_paterno if p else '') }}">
             </div>
-            <div class="col-sm-6">
-                <label class="form-label">Apellido materno</label>
+
+            <!-- Apellido Materno -->
+            <div class="col-md-6">
+                <label class="form-label fw-medium small">Apellido materno</label>
                 <input type="text" name="apellido_materno" class="form-control"
+                       placeholder="Ej. Gómez"
                        value="{{ d.get('apellido_materno', '') if d else (p.apellido_materno if p and p.apellido_materno else '') }}">
             </div>
-            <div class="col-sm-6">
-                <label class="form-label">Teléfono</label>
-                <input type="text" name="telefono" class="form-control" maxlength="30"
-                       value="{{ d.get('telefono', '') if d else (p.telefono if p and p.telefono else '') }}">
+
+            <!-- DNI -->
+            <div class="col-md-6">
+                <label class="form-label fw-medium small">DNI</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-card-heading"></i></span>
+                    <input type="text" name="dni" class="form-control" maxlength="8" pattern="\d{8}" title="8 dígitos numéricos"
+                           placeholder="8 dígitos"
+                           value="{{ d.get('dni', '') if d else (p.dni if p and p.dni else '') }}">
+                </div>
+            </div>
+
+            <!-- Teléfono -->
+            <div class="col-md-6">
+                <label class="form-label fw-medium small">Teléfono / Celular</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-telephone"></i></span>
+                    <input type="text" name="telefono" class="form-control" maxlength="30"
+                           placeholder="Ej. 987654321"
+                           value="{{ d.get('telefono', '') if d else (p.telefono if p and p.telefono else '') }}">
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card border-0 shadow-sm mb-3">
-    <div class="card-header bg-primary text-white"><i class="bi bi-shield-lock me-2"></i>Acceso al sistema</div>
-    <div class="card-body">
+<!-- ==========================================
+     2. SECCIÓN: ACCESO AL SISTEMA
+     ========================================== -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-transparent border-bottom py-3">
+        <h6 class="mb-0 fw-bold text-primary d-flex align-items-center">
+            <i class="bi bi-shield-lock fs-5 me-2"></i>Acceso al sistema
+        </h6>
+    </div>
+    <div class="card-body p-4">
         <div class="row g-3">
             {% if p %}
-            <div class="col-sm-6">
-                <label class="form-label">Correo</label>
-                <input type="email" class="form-control" value="{{ p.usuario.correo if p.usuario else '' }}" disabled>
-            </div>
-            <div class="col-sm-6">
-                <label class="form-label">Nueva contraseña</label>
-                <input type="password" name="nueva_contrasena" class="form-control" minlength="8"
-                       placeholder="Dejar vacío para no cambiarla">
-                <div class="form-text">Entre 8 y 72 caracteres, con letras y números.</div>
-            </div>
+                <!-- Modo Edición -->
+                <div class="col-md-6">
+                    <label class="form-label fw-medium small">Correo electrónico</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-envelope"></i></span>
+                        <input type="email" class="form-control bg-light" value="{{ p.usuario.correo if p.usuario else '' }}" disabled>
+                    </div>
+                    <div class="form-text">El correo institucional no se puede modificar.</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-medium small">Nueva contraseña</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-key"></i></span>
+                        <input type="password" name="nueva_contrasena" class="form-control" minlength="8"
+                               placeholder="Dejar vacío para mantener la actual">
+                    </div>
+                    <div class="form-text">Entre 8 y 72 caracteres (letras y números).</div>
+                </div>
             {% else %}
-            <div class="col-sm-6">
-                <label class="form-label">Correo <span class="text-danger">*</span></label>
-                <input type="email" name="correo" class="form-control" required
-                       value="{{ d.get('correo', '') if d else '' }}">
-            </div>
-            <div class="col-sm-6">
-                <label class="form-label">Contraseña <span class="text-danger">*</span></label>
-                <input type="password" name="contrasena" class="form-control" required minlength="8"
-                       placeholder="Mínimo 8 caracteres">
-                <div class="form-text">Entre 8 y 72 caracteres, con letras y números.</div>
-            </div>
+                <!-- Modo Creación -->
+                <div class="col-md-6">
+                    <label class="form-label fw-medium small">Correo electrónico <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-envelope"></i></span>
+                        <input type="email" name="correo" class="form-control" required
+                               placeholder="usuario@universidad.edu.pe"
+                               value="{{ d.get('correo', '') if d else '' }}">
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-medium small">Contraseña <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-key"></i></span>
+                        <input type="password" name="contrasena" class="form-control" required minlength="8"
+                               placeholder="Mínimo 8 caracteres">
+                    </div>
+                    <div class="form-text">Entre 8 y 72 caracteres (letras y números).</div>
+                </div>
             {% endif %}
         </div>
     </div>
 </div>
 
-<div class="card border-0 shadow-sm mb-3">
-    <div class="card-header bg-primary text-white"><i class="bi bi-diagram-3 me-2"></i>Rol</div>
-    <div class="card-body">
-        <div class="mb-2">
+<!-- ==========================================
+     3. SECCIÓN: ASIGNACIÓN DE ROL
+     ========================================== -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-transparent border-bottom py-3">
+        <h6 class="mb-0 fw-bold text-primary d-flex align-items-center">
+            <i class="bi bi-diagram-3 fs-5 me-2"></i>Rol del usuario
+        </h6>
+    </div>
+    <div class="card-body p-4">
+        <div class="d-flex align-items-center mb-3">
             {% if p and p.rol.nombre != 'administrador' %}
-                <span class="badge bg-secondary">{{ p.rol.nombre|replace('_', ' ')|capitalize }}</span>
-                <span class="text-muted small ms-1">Este rol no está habilitado.</span>
+                <span class="badge bg-secondary px-3 py-2 fs-6">
+                    <i class="bi bi-person-gear me-1"></i>{{ p.rol.nombre|replace('_', ' ')|capitalize }}
+                </span>
+                <span class="text-muted small ms-2">Este rol no se encuentra habilitado actualmente.</span>
             {% else %}
-                <span class="badge bg-danger">Administrador</span>
-                <span class="text-muted small ms-1">Acceso completo al sistema.</span>
+                <span class="badge bg-danger px-3 py-2 fs-6">
+                    <i class="bi bi-shield-check me-1"></i>Administrador
+                </span>
+                <span class="text-muted small ms-2">Acceso completo a todos los módulos del sistema.</span>
             {% endif %}
         </div>
-        <div class="alert alert-secondary py-2 small mb-0">
-            <i class="bi bi-info-circle me-1"></i>
-            Los roles <strong>Coordinador</strong> y <strong>Docente responsable</strong> no se pueden usar por ahora:
-            solo tienen sentido cuando el sistema se amplíe a más de una escuela (cada uno trabaja sobre una facultad
-            o un programa). Hoy el sistema funciona únicamente para Ingeniería de Sistemas y Computación.
+
+        <div class="alert alert-light border text-secondary p-3 rounded-3 small mb-0">
+            <div class="d-flex align-items-start">
+                <i class="bi bi-info-circle-fill text-primary fs-5 me-2 flex-shrink-0"></i>
+                <div>
+                    <strong>Nota sobre otros roles:</strong> Los roles <em>Coordinador</em> y <em>Docente responsable</em> están reservados y hace falta una logica para su funcinamiento si llega a escalar.
+                </div>
+            </div>
         </div>
     </div>
 </div>

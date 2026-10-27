@@ -15,9 +15,8 @@ from app.utils.historial import registrar
 from app.models import Historial
 from app.utils.historial import depurar_historial
 
-ID_CUENTA_NATIVA = 1      # la administradora del script SQL: no se puede desactivar
 
-
+# Helpers
 def _datos_basicos():
     f = request.form
     return {
@@ -27,7 +26,6 @@ def _datos_basicos():
         'apellido_materno': f.get('apellido_materno', '').strip() or None,
         'telefono':         f.get('telefono', '').strip() or None,
     }
-
 
 def _validar_basicos(datos, excluir_id=None):
     if not datos['nombres'] or not datos['apellido_paterno']:
@@ -43,12 +41,10 @@ def _validar_basicos(datos, excluir_id=None):
             return 'Ese DNI ya está registrado.'
     return None
 
-
 def _error_correo(correo):
     if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', correo) or len(correo) > 150:
         return 'El correo no es válido.'
     return None
-
 
 def _error_contrasena(clave):
     """Mismas reglas que el registro del egresado."""
@@ -56,15 +52,20 @@ def _error_contrasena(clave):
         return 'La contraseña debe tener entre 8 y 72 caracteres, con letras y números.'
     return None
 
+def _administradores_activos():
+    return (db.session.query(Usuario)
+            .join(Personal, Usuario.id_personal == Personal.id_personal)
+            .join(Rol, Personal.id_rol == Rol.id_rol)
+            .filter(Rol.nombre == 'administrador', Usuario.estado == 'activo').count())
 
+# FUNCIONALIDADES
 @admin.route('/admin/personal')
 @requiere_rol('administrador')
 def personal():
     lista = (db.session.query(Personal, Usuario)
              .join(Usuario, Usuario.id_personal == Personal.id_personal)
              .order_by(Personal.apellido_paterno, Personal.nombres).all())
-    return render_template('admin/personal.html', lista=lista,
-                           roles_habilitados=ROLES_HABILITADOS, id_nativa=ID_CUENTA_NATIVA)
+    return render_template('admin/personal.html', lista=lista, roles_habilitados=ROLES_HABILITADOS)
 
 
 @admin.route('/admin/personal/nuevo', methods=['GET', 'POST'])
@@ -95,7 +96,6 @@ def nuevo_personal():
             correo=correo,
             contrasena_hash=bcrypt.generate_password_hash(contrasena).decode('utf-8'),
             id_personal=persona.id_personal,
-            ultimo_cambio_password=func.now(),
             estado='activo'))
 
         # Se registra la acción cuando se crea un nuevo personal
@@ -130,7 +130,7 @@ def editar_personal(id):
             setattr(persona, campo, valor)
         if nueva_clave:
             usuario.contrasena_hash = bcrypt.generate_password_hash(nueva_clave).decode('utf-8')
-            usuario.ultimo_cambio_password = func.now()
+            usuario.ultimo_cambio_password = func.now() if persona.id_personal == current_user.id_personal else None
 
         # Se registra la acción cada que se edita un personal
         registrar('actualizacion', 'personal', f'Actualizó la cuenta de {usuario.correo}' + (' (cambió la contraseña)' if nueva_clave else ''))
@@ -150,14 +150,13 @@ def toggle_personal(id):
 
     if persona.id_personal == current_user.id_personal:
         flash('No puedes desactivar tu propia cuenta.', 'danger')
-    elif persona.id_personal == ID_CUENTA_NATIVA:
-        flash('La cuenta administradora nativa no puede desactivarse.', 'danger')
+    elif (usuario.estado == 'activo' and persona.rol.nombre in ROLES_HABILITADOS
+          and _administradores_activos() <= 1):
+        flash('Debe existir al menos un administrador activo.', 'danger')
     else:
-        # Registro de acción actualización de estado
-        registrar('actualizacion', 'personal', f'{"Activó" if usuario.estado == "inactivo" else "Desactivó"} la cuenta de {usuario.correo}')
-
+        registrar('actualizacion', 'personal',
+                  f'{"Activó" if usuario.estado == "inactivo" else "Desactivó"} la cuenta de {usuario.correo}')
         usuario.estado = 'inactivo' if usuario.estado == 'activo' else 'activo'
-
         db.session.commit()
         flash(f'Cuenta {"activada" if usuario.estado == "activo" else "desactivada"}.', 'info')
 

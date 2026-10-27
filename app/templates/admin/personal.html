@@ -1,14 +1,26 @@
 <!-- app/templates/admin/personal.html -->
 {% extends "base.html" %}
-{% block titulo %}Personal del sistema{% endblock %}
+
+{% block titulo %}Personal del Sistema{% endblock %}
+
 {% block contenido %}
+
+<!-- ==========================================
+     1. ENCABEZADO Y ACCIONES PRINCIPALES
+     ========================================== -->
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0"><i class="bi bi-person-badge me-2"></i>Personal del sistema</h4>
+    <div>
+        <h4 class="mb-1"><i class="bi bi-person-badge me-2 text-primary"></i>Personal del sistema</h4>
+        <p class="text-muted small mb-0">Gestión de cuentas, roles y estado de acceso de los usuarios.</p>
+    </div>
     <a href="{{ url_for('admin.nuevo_personal') }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg me-1"></i>Nueva cuenta
+        <i class="bi bi-person-plus me-1"></i>Nueva cuenta
     </a>
 </div>
 
+<!-- ==========================================
+     2. TABLA DE REGISTROS DE PERSONAL
+     ========================================== -->
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         {% if lista %}
@@ -16,49 +28,83 @@
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Nombre</th>
-                        <th>Correo</th>
+                        <th class="ps-3">Nombre</th>
+                        <th>Correo electrónico</th>
                         <th>Rol</th>
-                        <th>Estado</th>
-                        <th></th>
+                        <th>Estado / Seguridad</th>
+                        <th class="text-end pe-3">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                 {% for persona, usuario in lista %}
                 <tr>
-                    <td>
-                        <div class="fw-semibold small">{{ persona.apellido_paterno }} {{ persona.apellido_materno or '' }}</div>
-                        <div class="text-muted" style="font-size:.78rem;">{{ persona.nombres }}</div>
+                    <!-- Columna: Nombres y Apellidos -->
+                    <td class="ps-3">
+                        <div class="fw-semibold small">
+                            {{ persona.apellido_paterno }} {{ persona.apellido_materno or '' }}
+                        </div>
+                        <div class="text-muted" style="font-size: .78rem;">
+                            {{ persona.nombres }}
+                        </div>
                     </td>
-                    <td class="small">{{ usuario.correo }}</td>
+
+                    <!-- Columna: Correo -->
+                    <td class="small text-secondary">
+                        <i class="bi bi-envelope me-1 text-muted"></i>{{ usuario.correo }}
+                    </td>
+
+                    <!-- Columna: Rol y Estado de Habilitación -->
                     <td>
                         {% if persona.rol.nombre in roles_habilitados %}
-                            <span class="badge bg-danger">{{ persona.rol.nombre|replace('_', ' ')|capitalize }}</span>
+                            <span class="badge bg-danger">
+                                {{ persona.rol.nombre|replace('_', ' ')|capitalize }}
+                            </span>
                         {% else %}
-                            <span class="badge bg-secondary">{{ persona.rol.nombre|replace('_', ' ')|capitalize }}</span>
-                            <div class="text-muted" style="font-size:.7rem;">No habilitado</div>
+                            <span class="badge bg-secondary">
+                                {{ persona.rol.nombre|replace('_', ' ')|capitalize }}
+                            </span>
+                            <div class="text-muted mt-1" style="font-size: .7rem;">No habilitado</div>
                         {% endif %}
                     </td>
+
+                    <!-- Columna: Estado de Cuenta y Seguridad de Contraseña -->
                     <td>
-                        {% if usuario.estado == 'activo' %}<span class="badge bg-success">Activo</span>
-                        {% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}
+                        <div class="d-flex flex-column align-items-start gap-1">
+                            {% if usuario.estado == 'activo' %}
+                                <span class="badge bg-success">Activo</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactivo</span>
+                            {% endif %}
+
+                            {% if usuario.ultimo_cambio_password is none %}
+                                <span class="text-warning small d-inline-flex align-items-center" style="font-size: .72rem;">
+                                    <i class="bi bi-exclamation-circle me-1"></i>Pendiente de cambiar contraseña
+                                </span>
+                            {% endif %}
+                        </div>
                     </td>
-                    <td>
-                        <div class="d-flex gap-1 justify-content-end">
+
+                    <!-- Columna: Botones de Acción -->
+                    <td class="pe-3">
+                        <div class="d-flex gap-1 justify-content-end align-items-center">
+                            <!-- Editar -->
                             <a href="{{ url_for('admin.editar_personal', id=persona.id_personal) }}"
-                               class="btn btn-sm btn-outline-secondary" title="Editar">
+                               class="btn btn-sm btn-outline-secondary" 
+                               title="Editar datos">
                                 <i class="bi bi-pencil"></i>
                             </a>
+
+                            <!-- Indicador Sesión Actual vs Desactivar/Activar -->
                             {% if persona.id_personal == current_user.id_personal %}
-                                <span class="badge bg-light text-muted border align-self-center px-2"><i class="bi bi-person-check"></i> Tú</span>
-                            {% elif persona.id_personal == id_nativa %}
-                                <span class="badge bg-light text-muted border align-self-center px-2"><i class="bi bi-shield-lock"></i> Protegida</span>
+                                <span class="badge bg-light text-muted border px-2 py-1 ms-1" title="Tu usuario actual">
+                                    <i class="bi bi-person-check me-1"></i>Tú
+                                </span>
                             {% else %}
-                                <form method="POST" action="{{ url_for('admin.toggle_personal', id=persona.id_personal) }}">
+                                <form method="POST" action="{{ url_for('admin.toggle_personal', id=persona.id_personal) }}" class="d-inline">
                                     <button type="submit"
                                             class="btn btn-sm {{ 'btn-outline-warning' if usuario.estado == 'activo' else 'btn-outline-success' }}"
-                                            title="{{ 'Desactivar' if usuario.estado == 'activo' else 'Activar' }}">
-                                        <i class="bi bi-{{ 'pause' if usuario.estado == 'activo' else 'play' }}"></i>
+                                            title="{{ 'Desactivar cuenta' if usuario.estado == 'activo' else 'Activar cuenta' }}">
+                                        <i class="bi bi-{{ 'pause-fill' if usuario.estado == 'activo' else 'play-fill' }}"></i>
                                     </button>
                                 </form>
                             {% endif %}
@@ -69,10 +115,14 @@
                 </tbody>
             </table>
         </div>
+
+<!-- ==========================================
+     3. ESTADO VACÍO (SIN REGISTROS)
+     ========================================== -->
         {% else %}
         <div class="text-center text-muted py-5">
-            <i class="bi bi-person-badge fs-1"></i>
-            <p class="mt-2">No hay personal registrado aún.</p>
+            <i class="bi bi-person-badge fs-1 text-secondary opacity-50"></i>
+            <p class="mt-2 mb-0">No hay personal registrado aún en el sistema.</p>
         </div>
         {% endif %}
     </div>

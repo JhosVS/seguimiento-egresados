@@ -313,6 +313,8 @@ def cambiar_contrasena():
     if form.validate_on_submit():
         if not bcrypt.check_password_hash(current_user.contrasena_hash, form.contrasena_actual.data):
             flash('La contraseña actual no es correcta.', 'danger')
+        elif form.contrasena.data == form.contrasena_actual.data:
+            flash('La nueva contraseña debe ser distinta de la actual.', 'warning')
         else:
             current_user.contrasena_hash = _hash_password(form.contrasena.data)
             current_user.ultimo_cambio_password = func.now()

@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, make_response, redirect, url_
 from config import Config
 from app.extensions import db, login_manager, bcrypt, mail, scheduler
 from app.utils.historial import depurar_historial
+from flask_login import current_user
 
 from app.models import Usuario
 
@@ -39,6 +40,21 @@ def create_app(config_class=Config):
         # Solo con sesión iniciada: así cada clic renueva el tiempo de inactividad
         if '_user_id' in session:
             session.permanent = True
+
+    @app.before_request
+    def cambio_de_contrasena_obligatorio():
+        """Una cuenta de personal con contraseña asignada por otra persona debe cambiarla antes de usar el sistema."""
+        if (request.endpoint
+                and request.endpoint not in ('auth.cambiar_contrasena', 'auth.logout', 'static', 'uploaded_file')
+                and current_user.is_authenticated and current_user.es_personal
+                and current_user.ultimo_cambio_password is None):
+            flash('Por seguridad, es primer inicio de sesión cambia tu contraseña para continuar.', 'warning')
+            destino = url_for('auth.cambiar_contrasena')
+            if request.headers.get('HX-Request'):
+                respuesta = make_response('', 200)
+                respuesta.headers['HX-Redirect'] = destino
+                return respuesta
+            return redirect(destino)
 
     @login_manager.unauthorized_handler
     def no_autorizado():
