@@ -22,6 +22,7 @@ from app.models import (
 from datetime import datetime
 from app.utils.cv_pdf import generar_cv, generar_cv_simple
 from app.utils.historial import registrar
+from app.utils.helpers import guardar_archivo, borrar_archivo, clave_empresa
 
 # ============================================
 # UTILIDADES Y DECORADORES
@@ -102,7 +103,6 @@ def editar_perfil():
         nueva = None
         foto = request.files.get('foto')
         if foto and foto.filename:
-            from app.utils.helpers import guardar_archivo, borrar_archivo
             nueva = guardar_archivo(foto, 'fotos')
             if nueva:
                 e.foto = nueva
@@ -152,6 +152,7 @@ def _contexto_empleos(nuevo=False, editando=None, datos=None, errores=None):
         editando=editando,       # id del empleo que se está editando
         datos=datos or {},       # lo que el usuario escribió (para no perderlo si hay un error)
         errores=errores or [],
+        empresas=sorted(_empresas_registradas().values(), key=str.lower),
     )
 
 
@@ -162,7 +163,12 @@ def _tabla_empleos(**kwargs):
 def _validar_empleo(form, empleo=None):
     """Devuelve (errores, valores_limpios)."""
     errores = []
+
     empresa = form.get('empresa_nombre', '').strip()
+    clave = clave_empresa(empresa)
+    if clave:
+        empresa = _empresas_registradas().get(clave, empresa)   # si ya existe con otra escritura, se usa esa
+
     cargo = form.get('cargo', '').strip()
     contrato = form.get('tipo_contrato', '').strip()
     es_actual = form.get('es_actual') == 'on'
@@ -262,6 +268,15 @@ def eliminar_empleo(id):
     db.session.commit()
     return _tabla_empleos()
 
+# Un autocompleador automatico para el campo empresas, con coincidencias desde la db.
+def _empresas_registradas():
+    """{clave: nombre} de las empresas ya registradas; en cada una gana la escritura más usada."""
+    filas = (db.session.query(Empleo.empresa_nombre, db.func.count())
+             .group_by(Empleo.empresa_nombre).order_by(db.func.count().desc()).all())
+    unicas = {}
+    for nombre, _ in filas:
+        unicas.setdefault(clave_empresa(nombre), nombre.strip())
+    return unicas
 
 # ============================================
 # FORMACIÓN PROFESIONAL (grados y títulos)

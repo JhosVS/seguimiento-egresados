@@ -1,6 +1,4 @@
 # app/admin/dashboard.py
-import re
-import unicodedata
 from collections import Counter
 
 from flask import render_template, request, send_file
@@ -14,25 +12,15 @@ from app.models import Curricula, Egresado, Empleo, EncuestaEnvio, FormacionAcad
 
 from app.admin.informes import generar_informe_pdf
 from app.utils.historial import registrar
+from app.utils.helpers import clave_empresa
 
 GRADOS = [('bachiller', 'Bachiller', '#0d6efd'), ('titulado', 'Título profesional', '#198754'),
           ('maestria', 'Maestría', '#ffc107'), ('doctorado', 'Doctorado', '#dc3545')]
 TOP_EMPRESAS = 10
 
-# Siglas legales que se ignoran al comparar nombres de empresa
-SUFIJOS_EMPRESA = {'sac', 'sa', 'saa', 'srl', 'eirl', 'ltda', 'inc', 'llc',
-                   'sociedad', 'anonima', 'cerrada', 'abierta'}
-
 
 def _pct(parte, total):
     return round(parte / total * 100, 1) if total else 0
-
-
-def _clave_empresa(nombre):
-    """Agrupa variantes del mismo nombre: 'Tech Solutions S.A.C.' = 'TECH SOLUTIONS'."""
-    texto = unicodedata.normalize('NFKD', nombre or '').encode('ascii', 'ignore').decode().lower()
-    texto = re.sub(r'[^a-z0-9]+', ' ', texto.replace('.', ''))
-    return ' '.join(p for p in texto.split() if p not in SUFIJOS_EMPRESA)
 
 
 def _empleo_actual(sectores=None):
@@ -95,7 +83,7 @@ def _ranking_empresas(ids):
         select(Empleo.id_egresado, Empleo.empresa_nombre).where(Empleo.id_egresado.in_(ids))).all()
     grupos = {}
     for id_egresado, nombre in filas:
-        clave = _clave_empresa(nombre)
+        clave = clave_empresa(nombre)
         if clave:
             g = grupos.setdefault(clave, {'egresados': set(), 'nombres': Counter()})
             g['egresados'].add(id_egresado)
