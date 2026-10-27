@@ -3,15 +3,15 @@
 {% block titulo %}{{ encuesta.nombre }}{% endblock %}
 
 {% block contenido %}
-<div class="d-flex align-items-center gap-2 mb-3">
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
     <a href="{{ url_for('egresado.encuesta') }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left"></i>
     </a>
-    <h4 class="mb-0">{{ encuesta.nombre }}</h4>
+    <h4 class="mb-0 text-truncate" style="max-width: 85%;">{{ encuesta.nombre }}</h4>
 </div>
 
 {% if encuesta.descripcion %}
-<p class="text-muted">{{ encuesta.descripcion }}</p>
+<p class="text-muted small">{{ encuesta.descripcion }}</p>
 {% endif %}
 
 <div class="alert alert-info small py-2 mb-4">
@@ -20,8 +20,8 @@
 </div>
 
 <form method="POST">
-    <div class="card">
-        <div class="card-body">
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-3 p-md-4">
             {% for p in preguntas %}
             <div class="mb-4 {% if not loop.last %}pb-4 border-bottom{% endif %}">
                 <label class="form-label fw-semibold">
@@ -30,15 +30,15 @@
                 </label>
 
                 {% if p.tipo == 'texto' %}
-                    <textarea name="pregunta_{{ p.id_pregunta }}" class="form-control" rows="2"
-                              {{ 'required' if p.obligatoria }}></textarea>
+                    <textarea name="pregunta_{{ p.id_pregunta }}" class="form-control" rows="3"
+                              {{ 'required' if p.obligatoria }} placeholder="Escribe tu respuesta aquí..."></textarea>
 
                 {% elif p.tipo == 'numero' %}
-                    <input type="number" step="any" name="pregunta_{{ p.id_pregunta }}" class="form-control" style="max-width: 200px;"
-                           {{ 'required' if p.obligatoria }}>
+                    <input type="number" step="any" name="pregunta_{{ p.id_pregunta }}" class="form-control w-100" style="max-width: 250px;"
+                           {{ 'required' if p.obligatoria }} placeholder="0.0">
 
                 {% elif p.tipo == 'si_no' %}
-                    <div class="d-flex gap-4">
+                    <div class="d-flex gap-4 flex-wrap">
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="pregunta_{{ p.id_pregunta }}"
                                    value="si" id="p{{ p.id_pregunta }}_si" {{ 'required' if p.obligatoria }}>
@@ -52,17 +52,19 @@
                     </div>
 
                 {% elif p.tipo == 'opcion_unica' %}
-                    {% for o in p.opciones %}
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="pregunta_{{ p.id_pregunta }}"
-                               value="{{ o.id_opcion }}" id="op{{ o.id_opcion }}"
-                               {{ 'required' if p.obligatoria }}>
-                        <label class="form-check-label" for="op{{ o.id_opcion }}">{{ o.texto }}</label>
+                    <div class="d-flex flex-column gap-1">
+                        {% for o in p.opciones %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="pregunta_{{ p.id_pregunta }}"
+                                   value="{{ o.id_opcion }}" id="op{{ o.id_opcion }}"
+                                   {{ 'required' if p.obligatoria }}>
+                            <label class="form-check-label" for="op{{ o.id_opcion }}">{{ o.texto }}</label>
+                        </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
 
                 {% elif p.tipo == 'opcion_multiple' %}
-                    <div {% if p.obligatoria %}data-multiple-obligatoria{% endif %}>
+                    <div class="d-flex flex-column gap-1" {% if p.obligatoria %}data-multiple-obligatoria{% endif %}>
                         {% for o in p.opciones %}
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" name="pregunta_{{ p.id_pregunta }}"
@@ -75,9 +77,11 @@
             </div>
             {% endfor %}
 
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-send-check me-1"></i>Enviar respuestas
-            </button>
+            <div class="d-grid d-md-block mt-4">
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="bi bi-send-check me-1"></i>Enviar respuestas
+                </button>
+            </div>
         </div>
     </div>
 </form>

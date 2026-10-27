@@ -1,21 +1,22 @@
+<!-- app/templates/egresado/seleccionar_cv.html -->
 {% extends "base.html" %}
 {% block titulo %}Generar CV{% endblock %}
 
 {% block contenido %}
-<div class="container py-3" style="max-width: 800px;">
+<div class="container-fluid px-0 px-md-3" style="max-width: 800px;">
 
     <div class="mb-4 pb-2 border-bottom">
-        <h4 class="mb-0 fw-bold"><i class="bi bi-file-earmark-pdf me-2 text-primary"></i>Generar mi CV</h4>
+        <h4 class="mb-0 fw-bold fs-5 fs-md-4"><i class="bi bi-file-earmark-pdf me-2 text-primary"></i>Generar mi CV</h4>
     </div>
 
     <form method="POST" action="{{ url_for('egresado.generar_cv_final') }}">
 
         <!-- Encabezado: CV general -->
-        <div id="bloque-general" class="card shadow-sm mb-4">
+        <div id="bloque-general" class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-light fw-bold py-2">
                 <i class="bi bi-person-badge me-2 text-primary"></i>Encabezado del CV
             </div>
-            <div class="card-body">
+            <div class="card-body p-3 p-md-4">
                 <div class="mb-3">
                     <label class="form-label small fw-semibold">Título / Ocupación</label>
                     <input type="text" name="titulo_cv" class="form-control" maxlength="150"
@@ -32,22 +33,21 @@
         </div>
 
         <!-- Experiencia laboral -->
-        <div class="card shadow-sm mb-4">
+        <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-light fw-bold py-2">
                 <i class="bi bi-briefcase me-2 text-primary"></i>Experiencia laboral
             </div>
-            <div class="card-body">
+            <div class="card-body p-3 p-md-4">
                 {% if empleos %}
                 {% for emp in empleos %}
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="checkbox" name="empleos" value="{{ emp.id_empleo }}"
                         id="emp-{{ emp.id_empleo }}">
-                    <label class="form-check-label small" for="emp-{{ emp.id_empleo }}">
+                    <label class="form-check-label small text-break" for="emp-{{ emp.id_empleo }}">
                         <strong>{{ emp.cargo }}</strong> — {{ emp.empresa_nombre }}
-                        <span class="text-muted">
+                        <span class="text-muted d-block d-sm-inline">
                             ({{ emp.fecha_inicio.strftime('%m/%Y') if emp.fecha_inicio else '—' }} –
-                            {{ 'Actualidad' if emp.es_actual else (emp.fecha_fin.strftime('%m/%Y') if emp.fecha_fin else
-                            '—') }})
+                            {{ 'Actualidad' if emp.es_actual else (emp.fecha_fin.strftime('%m/%Y') if emp.fecha_fin else '—') }})
                         </span>
                     </label>
                 </div>
@@ -59,19 +59,19 @@
         </div>
 
         <!-- Formación profesional -->
-        <div class="card shadow-sm mb-4">
+        <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-light fw-bold py-2">
                 <i class="bi bi-mortarboard me-2 text-primary"></i>Formación profesional
             </div>
-            <div class="card-body">
+            <div class="card-body p-3 p-md-4">
                 {% if logros %}
                 {% for l in logros %}
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="checkbox" name="logros" value="{{ l.id_formacion }}"
                         id="logro-{{ l.id_formacion }}">
-                    <label class="form-check-label small" for="logro-{{ l.id_formacion }}">
+                    <label class="form-check-label small text-break" for="logro-{{ l.id_formacion }}">
                         <strong>{{ l.grado_titulo }}</strong>
-                        <span class="text-muted">— {{ l.institucion }}
+                        <span class="text-muted d-block d-sm-inline">— {{ l.institucion }}
                             ({{ l.fecha_obtencion.strftime('%d/%m/%Y') if l.fecha_obtencion else '—' }})</span>
                     </label>
                 </div>
@@ -83,19 +83,19 @@
         </div>
 
         <!-- Formación complementaria -->
-        <div class="card shadow-sm mb-4">
+        <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-light fw-bold py-2">
                 <i class="bi bi-patch-check me-2 text-primary"></i>Formación complementaria
             </div>
-            <div class="card-body">
+            <div class="card-body p-3 p-md-4">
                 {% if certificados %}
                 {% for c in certificados %}
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="checkbox" name="certificados" value="{{ c.id_certificado }}"
                         id="cert-{{ c.id_certificado }}">
-                    <label class="form-check-label small" for="cert-{{ c.id_certificado }}">
+                    <label class="form-check-label small text-break" for="cert-{{ c.id_certificado }}">
                         <strong>{{ c.nombre }}</strong>
-                        <span class="text-muted">— {{ c.institucion_emisora }}
+                        <span class="text-muted d-block d-sm-inline">— {{ c.institucion_emisora }}
                             ({{ c.fecha_emision.strftime('%m/%Y') if c.fecha_emision else '—' }})</span>
                     </label>
                 </div>
@@ -106,13 +106,14 @@
             </div>
         </div>
 
-        <div class="d-flex justify-content-end gap-2 mb-4">
-            <button type="submit" name="tipo_cv" value="alternativo" class="btn btn-outline-secondary"
+        <!-- Botones de acción inferiores responsivos -->
+        <div class="d-flex justify-content-end gap-2 mb-4 flex-wrap">
+            <button type="submit" name="tipo_cv" value="alternativo" class="btn btn-outline-secondary w-100 w-sm-auto mb-2 mb-sm-0"
                 title="Solo texto, sin diseño: ideal para postular a una vacante"
                 onclick="const t = this.form.titulo_cv; if (!t.value.trim()) { t.focus(); alert('Escribe el puesto al que postulas en el campo Título / Ocupación.'); return false; }">
                 <i class="bi bi-file-text me-1"></i>CV alternativo
             </button>
-            <button type="submit" name="tipo_cv" value="general" class="btn btn-primary px-4">
+            <button type="submit" name="tipo_cv" value="general" class="btn btn-primary px-4 w-100 w-sm-auto">
                 <i class="bi bi-file-earmark-pdf me-1"></i>Generar y descargar CV
             </button>
         </div>

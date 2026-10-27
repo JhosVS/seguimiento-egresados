@@ -1,8 +1,10 @@
+<!-- app/templates/egresado/empleos.html -->
 {% extends "base.html" %}
 {% block titulo %}Experiencia laboral{% endblock %}
 
 {% block contenido %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<!-- Encabezado responsivo corregido -->
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <h4 class="mb-0"><i class="bi bi-briefcase me-2"></i>Experiencia laboral</h4>
     <button type="button" class="btn btn-primary btn-sm"
             hx-get="{{ url_for('egresado.empleos_tabla', nuevo=1) }}"
@@ -11,9 +13,8 @@
     </button>
 </div>
 
-<!-- Todo lo que cambia vive aquí dentro; hx-target lo heredan los botones de la tabla -->
+<!-- Zona dinámica donde se renderiza la tabla -->
 <div id="zona-empleos" hx-target="#zona-empleos" hx-swap="innerHTML">
     {% include 'egresado/_tabla_empleos.html' %}
 </div>
-
 {% endblock %}

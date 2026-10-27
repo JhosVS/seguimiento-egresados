@@ -36,17 +36,19 @@
                 <form method="POST">
                     {{ form.hidden_tag() }}
 
+                    <!-- Campo Correo -->
                     <div class="mb-3">
                         {{ form.correo.label(class="form-label fw-semibold small") }}
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-envelope text-muted"></i></span>
-                            {{ form.correo(class="form-control", placeholder="correo@undac.edu.pe", autocomplete="username") }}
+                            {{ form.correo(class="form-control", type="email", placeholder="correo@undac.edu.pe", autocomplete="username") }}
                         </div>
                         {% if form.correo.errors %}
                         <div class="text-danger small mt-1">{{ form.correo.errors[0] }}</div>
                         {% endif %}
                     </div>
 
+                    <!-- Campo Contraseña -->
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             {{ form.contrasena.label(class="form-label fw-semibold small mb-0") }}
@@ -54,7 +56,10 @@
                         </div>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-lock text-muted"></i></span>
-                            {{ form.contrasena(class="form-control", placeholder="••••••••", autocomplete="current-password") }}
+                            {{ form.contrasena(class="form-control", type="password", id="inputPass", placeholder="••••••••", autocomplete="current-password") }}
+                            <button class="btn btn-outline-secondary bg-light text-muted" type="button" id="btnToggle">
+                                <i class="bi bi-eye" id="iconEye"></i>
+                            </button>
                         </div>
                         {% if form.contrasena.errors %}
                         <div class="text-danger small mt-1">{{ form.contrasena.errors[0] }}</div>
@@ -75,5 +80,18 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const btn = document.getElementById('btnToggle');
+        const input = document.getElementById('inputPass');
+        const icon = document.getElementById('iconEye');
+
+        if (btn && input) {
+            btn.addEventListener('click', () => {
+                const isPass = input.type === 'password';
+                input.type = isPass ? 'text' : 'password';
+                icon.className = isPass ? 'bi bi-eye-slash' : 'bi bi-eye';
+            });
+        }
+    </script>
 </body>
 </html>

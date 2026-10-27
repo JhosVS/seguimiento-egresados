@@ -48,11 +48,11 @@
             {% endif %}
         </select>
     </td>
-    <td>
+    <td class="text-nowrap">
         <input type="date" name="fecha_inicio" form="f-empleo" class="form-control form-control-sm" value="{{ inicio }}"
             required>
     </td>
-    <td>
+    <td class="text-nowrap">
         <input type="date" id="fecha-fin-edicion" name="fecha_fin" form="f-empleo" class="form-control form-control-sm"
             value="{{ fin }}" {{ 'disabled' if actual }}>
         <div class="form-check mt-1">
@@ -88,9 +88,9 @@
     <td class="fw-semibold small">{{ emp.cargo }}</td>
     <td class="small">{{ emp.empresa_nombre }}</td>
     <td class="small text-muted">{{ emp.sector.nombre if emp.sector else '—' }}</td>
-    <td class="small">{{ emp.tipo_contrato or '—' }}</td>
-    <td class="small">{{ emp.fecha_inicio.strftime('%d/%m/%Y') if emp.fecha_inicio else '—' }}</td>
-    <td class="small">
+    <td class="small text-nowrap">{{ emp.tipo_contrato or '—' }}</td>
+    <td class="small text-nowrap">{{ emp.fecha_inicio.strftime('%d/%m/%Y') if emp.fecha_inicio else '—' }}</td>
+    <td class="small text-nowrap">
         {% if emp.es_actual %}
         <span class="badge bg-success">Actual</span>
         {% else %}
@@ -129,7 +129,7 @@
 {% endif %}
 
 {# ---------- Tabla Principal ---------- #}
-<div class="card shadow-sm">
+<div class="card shadow-sm border-0">
     <div class="table-responsive">
         <table class="table align-middle mb-0">
             <thead class="table-light">

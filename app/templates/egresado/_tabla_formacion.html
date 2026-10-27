@@ -1,3 +1,4 @@
+<!-- app/templates/egresado/_tabla_formacion.html -->
 {# ---------- Fila de formulario (nuevo o edición) ---------- #}
 {% macro fila_form(l, datos, tipos, institucion_defecto, hoy) %}
     {% set tipo        = datos.tipo            if datos else (l.tipo if l else '') %}
@@ -6,7 +7,7 @@
     {% set institucion = datos.institucion     if datos else (l.institucion if l else institucion_defecto) %}
 
     <tr>
-        <td class="text-muted small">{{ '✎' if l else '+' }}</td>
+        <td class="text-muted small align-middle">{{ '✎' if l else '+' }}</td>
         <td>
             <select name="tipo" form="f-grado" class="form-select form-select-sm" required
                     onchange="sugerirGrado(this)">
@@ -21,7 +22,7 @@
                    class="form-control form-control-sm" value="{{ grado }}" maxlength="300" required
                    placeholder="Ej: INGENIERO DE SISTEMAS Y COMPUTACIÓN">
         </td>
-        <td>
+        <td class="text-nowrap">
             <input type="date" name="fecha_obtencion" form="f-grado" class="form-control form-control-sm"
                    value="{{ fecha }}" max="{{ hoy }}" required>
         </td>
@@ -29,7 +30,7 @@
             <input type="text" name="institucion" form="f-grado" class="form-control form-control-sm"
                    value="{{ institucion }}" maxlength="200" required>
         </td>
-        <td class="text-end text-nowrap">
+        <td class="text-end text-nowrap align-middle">
             <button type="submit" form="f-grado" class="btn btn-sm btn-success" title="Guardar">
                 <i class="bi bi-check-lg"></i>
             </button>
@@ -56,7 +57,7 @@
 <form id="f-grado" hx-post="{{ url_for('egresado.guardar_grado', id=editando) }}"></form>
 {% endif %}
 
-<div class="card shadow-sm">
+<div class="card shadow-sm border-0">
     <div class="table-responsive">
         <table class="table align-middle mb-0">
             <thead class="table-light">
@@ -85,9 +86,9 @@
                 <tbody>
                     <tr>
                         <td class="text-muted small">{{ loop.index }}</td>
-                        <td class="small"><span class="badge bg-primary">{{ etiqueta_tipo[l.tipo] }}</span></td>
+                        <td class="small text-nowrap"><span class="badge bg-primary">{{ etiqueta_tipo[l.tipo] }}</span></td>
                         <td class="fw-semibold small">{{ l.grado_titulo }}</td>
-                        <td class="small">{{ l.fecha_obtencion.strftime('%d/%m/%Y') if l.fecha_obtencion else '—' }}</td>
+                        <td class="small text-nowrap">{{ l.fecha_obtencion.strftime('%d/%m/%Y') if l.fecha_obtencion else '—' }}</td>
                         <td class="small">{{ l.institucion }}</td>
                         <td class="text-end text-nowrap">
                             <button type="button" class="btn btn-sm btn-outline-secondary" title="Editar"
@@ -108,8 +109,8 @@
             {% if not logros and not nuevo %}
             <tbody>
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-5">
-                        <i class="bi bi-mortarboard fs-1 d-block"></i>
+                    <td colspan="6" class="text-center text-muted py-5">
+                        <i class="bi bi-mortarboard fs-1 d-block mb-2"></i>
                         No tienes grados o títulos registrados. Pulsa <strong>Nuevo</strong> para agregar el primero.
                     </td>
                 </tr>
