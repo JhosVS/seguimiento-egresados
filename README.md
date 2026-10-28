@@ -114,4 +114,4 @@ config.py
 
 ## Autor
 
-[Tu nombre completo] — Prácticas pre profesionales, Escuela de Ingeniería de Sistemas y Computación, UNDAC, 2026.
+Valladares J — Prácticas pre profesionales, Escuela de Ingeniería de Sistemas y Computación, UNDAC, 2026.
