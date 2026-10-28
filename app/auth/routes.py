@@ -21,7 +21,7 @@ from app.models import Usuario, Egresado, ProgramaEstudio, Curricula, Certificad
 from app.utils.api_undac import consultar_api_undac
 from app.utils.email import enviar_correo_recuperacion
 from app.admin.roles import ROLES_HABILITADOS
-from app.utils.historial import registrar
+from app.utils.historial import registrar, estado_acceso, MAX_INTENTOS, MINUTOS_BLOQUEO
 
 # Campos del formulario de registro que se copian al egresado
 CAMPOS_PERFIL = ['nombres', 'apellido_paterno', 'apellido_materno',
@@ -142,19 +142,34 @@ def login():
 
     form = LoginForm()
     if form.validate_on_submit():
-        usuario = Usuario.query.filter_by(correo=form.correo.data.lower()).first()
+        correo = form.correo.data.lower()
+        bloqueado, fallos = estado_acceso(correo)
+        if bloqueado:
+            flash(f'Demasiados intentos fallidos. Espera {MINUTOS_BLOQUEO} minutos e inténtalo de nuevo.', 'danger')
+            return render_template('auth/login.html', form=form)
 
+        usuario = Usuario.query.filter_by(correo=correo).first()
+        motivo = None
         if not usuario or not bcrypt.check_password_hash(usuario.contrasena_hash, form.contrasena.data):
+            motivo = 'Correo o contraseña incorrectos'
             flash('Correo o contraseña incorrectos.', 'danger')
         elif not usuario.is_active:
+            motivo = 'Cuenta inactiva'
             flash('Tu cuenta está inactiva. Contacta con soporte.', 'danger')
         elif usuario.es_personal and usuario.rol not in ROLES_HABILITADOS:
+            motivo = 'Rol no habilitado'
             flash('Tu rol aún no está habilitado en el sistema. Contacta con el administrador.', 'warning')
         else:
             login_user(usuario)
+            session.permanent = True
+            registrar('inicio_sesion', 'acceso', 'Inició sesión')
             usuario.ultimo_acceso = func.now()
             db.session.commit()
             return redirect(_next_seguro() or url_destino_usuario(usuario))
+
+        if fallos + 1 >= MAX_INTENTOS:
+            motivo += f' (cuenta bloqueada {MINUTOS_BLOQUEO} minutos)'
+        registrar('intento_fallido', 'acceso', motivo, guardar=True, correo=correo)
 
     return render_template('auth/login.html', form=form)
 

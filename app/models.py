@@ -598,6 +598,6 @@ class Historial(db.Model):
     id_usuario = db.Column(db.Integer, db.ForeignKey('usuarios.id_usuario', ondelete='SET NULL'))
     usuario_correo = db.Column(db.String(150))
     rol = db.Column(db.String(50))
-    accion = db.Column(db.Enum('consulta', 'creacion', 'actualizacion', 'eliminacion'), nullable=False)
+    accion = db.Column(db.Enum('consulta', 'creacion', 'actualizacion', 'eliminacion','inicio_sesion', 'intento_fallido'), nullable=False)
     modulo = db.Column(db.String(50), nullable=False)
     detalle = db.Column(db.String(300), nullable=False)

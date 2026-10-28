@@ -14,7 +14,7 @@ def _ahora():
     return datetime.now(LIMA).replace(tzinfo=None)
 
 
-def registrar(accion, modulo, detalle, guardar=False):
+def registrar(accion, modulo, detalle, guardar=False, correo=None):
     """
     Anota quién hizo qué. Se suma a la misma transacción de la ruta (si la acción falla, no queda
     rastro). Para consultas, que no guardan nada más, usar guardar=True.
@@ -23,7 +23,7 @@ def registrar(accion, modulo, detalle, guardar=False):
         db.session.add(Historial(
             fecha=_ahora(),
             id_usuario=current_user.id_usuario if current_user.is_authenticated else None,
-            usuario_correo=current_user.correo if current_user.is_authenticated else None,
+            usuario_correo=current_user.correo if current_user.is_authenticated else ((correo or '')[:150] or None),
             rol=current_user.rol if current_user.is_authenticated else None,
             accion=accion, modulo=modulo, detalle=detalle[:300]))
         if guardar:
@@ -44,3 +44,26 @@ def depurar_historial():
         Historial.query.filter(Historial.id_historial.in_(ids)).delete(synchronize_session=False)
 
     db.session.commit()
+
+# Registros por inicio de sesión
+
+MAX_INTENTOS = 5          # intentos fallidos seguidos que bloquean la cuenta
+MINUTOS_BLOQUEO = 3       # tiempo de espera, contado desde el último intento fallido
+VENTANA_MINUTOS = 15      # hasta cuándo atrás se cuentan los intentos fallidos
+
+
+def estado_acceso(correo):
+    """(bloqueado, cantidad de intentos fallidos recientes) de ese correo."""
+    ahora = _ahora()
+    desde = ahora - timedelta(minutes=VENTANA_MINUTOS)
+    ultimo_ok = db.session.query(db.func.max(Historial.fecha)).filter(
+        Historial.accion == 'inicio_sesion', Historial.usuario_correo == correo).scalar()
+    if ultimo_ok and ultimo_ok > desde:
+        desde = ultimo_ok                    # un inicio de sesión correcto reinicia la cuenta
+
+    fechas = [f for (f,) in db.session.query(Historial.fecha)
+              .filter(Historial.accion == 'intento_fallido', Historial.usuario_correo == correo,
+                      Historial.fecha > desde)
+              .order_by(Historial.fecha.desc()).limit(MAX_INTENTOS).all()]
+    bloqueado = len(fechas) >= MAX_INTENTOS and fechas[0] >= ahora - timedelta(minutes=MINUTOS_BLOQUEO)
+    return bloqueado, len(fechas)

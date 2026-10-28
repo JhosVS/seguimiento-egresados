@@ -2,8 +2,8 @@
 {% extends "base.html" %}
 {% block titulo %}Historial{% endblock %}
 {% block contenido %}
-{% set colores = {'consulta': 'bg-info text-dark', 'creacion': 'bg-success', 'actualizacion': 'bg-warning text-dark',
-'eliminacion': 'bg-danger'} %}
+{% set colores = {'consulta': 'bg-info text-dark', 'creacion': 'bg-success', 'actualizacion': 'bg-warning text-dark', 'eliminacion': 'bg-danger', 'inicio_sesion': 'bg-secondary', 'intento_fallido': 'bg-dark'} %}
+{% set etiquetas = {'consulta': 'Consulta', 'creacion': 'Creación', 'actualizacion': 'Actualización', 'eliminacion': 'Eliminación', 'inicio_sesion': 'Inicio de sesión', 'intento_fallido': 'Intento fallido'} %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0"><i class="bi bi-clock-history me-2"></i>Historial</h4>
@@ -14,9 +14,7 @@
     <div class="col-md-3">
         <select name="accion" class="form-select form-select-sm" onchange="this.form.submit()">
             <option value="">Todas las acciones</option>
-            {% for a in ['consulta', 'creacion', 'actualizacion', 'eliminacion'] %}
-            <option value="{{ a }}" {{ 'selected' if accion==a }}>{{ a|capitalize }}</option>
-            {% endfor %}
+            {% for a, nombre in etiquetas.items() %}            <option value="{{ a }}" {{ 'selected' if accion == a }}>{{ nombre }}</option>            {% endfor %}
         </select>
     </div>
     <div class="col-md-6">
@@ -45,7 +43,7 @@
                     <td>{{ h.usuario_correo or '—' }}<div class="text-muted" style="font-size:.7rem;">{{ h.rol or '' }}
                         </div>
                     </td>
-                    <td><span class="badge {{ colores.get(h.accion) }}">{{ h.accion|capitalize }}</span></td>
+                    <td><span class="badge {{ colores.get(h.accion) }}">{{ etiquetas[h.accion] }}</span></td>
                     <td>{{ h.modulo|replace('_', ' ')|capitalize }}</td>
                     <td>{{ h.detalle }}</td>
                 </tr>
