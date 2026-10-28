@@ -13,3 +13,4 @@ openpyxl
 matplotlib
 reportlab
 email-validator
+gunicorn
