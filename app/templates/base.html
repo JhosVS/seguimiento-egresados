@@ -73,9 +73,9 @@
                 <a href="{{ url_for('egresado.ofertas') }}" target="_blank" class="sidebar-link">
                     <i class="bi bi-briefcase"></i><span class="sidebar-text">Ofertas laborales</span>
                 </a>
-                <a href="{{ url_for('egresado.encuesta') }}"
-                    class="sidebar-link {% if request.endpoint in ['egresado.encuesta', 'egresado.responder_encuesta'] %}active{% endif %}">
+                <a href="{{ url_for('egresado.encuesta') }}" class="sidebar-link {% if request.endpoint in ['egresado.encuesta', 'egresado.responder_encuesta'] %}active{% endif %}">
                     <i class="bi bi-clipboard-check"></i><span class="sidebar-text">Encuestas</span>
+                    {% if encuestas_pendientes %}<span class="badge rounded-pill bg-danger ms-auto">{{ encuestas_pendientes }}</span>{% endif %}
                 </a>
                 {% else %}
                 <a href="{{ url_for('admin.dashboard') }}"

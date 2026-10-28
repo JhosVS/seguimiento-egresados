@@ -8,6 +8,8 @@ load_dotenv()
 class Config:
     # Llave secreta con fallback seguro para desarrollo
     SECRET_KEY = os.getenv('SECRET_KEY')
+    
+    SQLALCHEMY_ENGINE_OPTIONS = {'pool_pre_ping': True, 'pool_recycle': 280}
 
     if not SECRET_KEY:
         raise RuntimeError('Falta SECRET_KEY en el archivo .env')

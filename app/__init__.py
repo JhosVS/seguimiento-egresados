@@ -6,11 +6,16 @@ from config import Config
 from app.extensions import db, login_manager, bcrypt, mail, scheduler
 from app.utils.historial import depurar_historial
 from flask_login import current_user
+from datetime import date
+from sqlalchemy import func, or_, select
 
-from app.models import Usuario
+from app.models import Usuario, Encuesta, EncuestaEnvio
 
 def create_app(config_class=Config):
     app = Flask(__name__)
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)   # detrás del proxy de Render
+
     app.config.from_object(config_class)
 
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -55,6 +60,22 @@ def create_app(config_class=Config):
                 respuesta.headers['HX-Redirect'] = destino
                 return respuesta
             return redirect(destino)
+
+    @app.context_processor
+    def avisos_del_egresado():
+        """Encuestas que el egresado aún no responde: para el globo rojo del menú."""
+        if not (current_user.is_authenticated and current_user.es_egresado):
+            return {'encuestas_pendientes': 0}
+        hoy = date.today()
+        respondidas = select(EncuestaEnvio.id_encuesta).where(
+            EncuestaEnvio.id_egresado == current_user.id_egresado)
+        pendientes = db.session.scalar(
+            select(func.count()).select_from(Encuesta).where(
+                Encuesta.estado == 'publicada',
+                or_(Encuesta.fecha_inicio.is_(None), Encuesta.fecha_inicio <= hoy),
+                or_(Encuesta.fecha_fin.is_(None), Encuesta.fecha_fin >= hoy),
+                Encuesta.id_encuesta.not_in(respondidas)))
+        return {'encuestas_pendientes': pendientes}
 
     @login_manager.unauthorized_handler
     def no_autorizado():
