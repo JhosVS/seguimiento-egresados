@@ -1,19 +1,35 @@
 # app/utils/email.py
-from flask import url_for, render_template
-from flask_mail import Message
-from app.extensions import mail
+import os
+
+import requests
+from flask import current_app, url_for
+
+URL_BREVO = 'https://api.brevo.com/v3/smtp/email'
+
+
+def _enviar(destino, asunto, html):
+    """Envía un correo por la API de Brevo (HTTPS). Devuelve True si salió bien."""
+    try:
+        r = requests.post(
+            URL_BREVO,
+            headers={'api-key': os.environ['BREVO_API_KEY'], 'accept': 'application/json'},
+            json={'sender': {'name': os.environ.get('MAIL_REMITENTE_NOMBRE', 'Seguimiento Egresados UNDAC'),
+                             'email': os.environ['MAIL_REMITENTE']},
+                  'to': [{'email': destino}],
+                  'subject': asunto,
+                  'htmlContent': html},
+            timeout=10)   # sin esto, un fallo del proveedor deja la página colgada otra vez
+        r.raise_for_status()
+        return True
+    except Exception:
+        current_app.logger.exception('No se pudo enviar el correo a %s', destino)
+        return False
+
 
 def enviar_correo_recuperacion(correo_destino, token):
     """Envía el correo de restablecimiento de contraseña."""
     enlace = url_for('auth.restablecer_contrasena', token=token, _external=True)
-    
-    msg = Message(
-        subject='Recuperación de contraseña — Egresados UNDAC',
-        recipients=[correo_destino]
-    )
-    
-    # Podrías usar render_template si creas un html, o mantener el string formateado aquí
-    msg.html = f'''
+    html = f'''
     <div style="font-family:Segoe UI,sans-serif;max-width:480px;margin:0 auto;">
         <div style="background:#003876;padding:24px;text-align:center;border-radius:12px 12px 0 0;">
             <h2 style="color:#fff;margin:0;font-size:1.2rem;">Sistema de Egresados UNDAC</h2>
@@ -37,10 +53,4 @@ def enviar_correo_recuperacion(correo_destino, token):
         </div>
     </div>
     '''
-    try:
-        mail.send(msg)
-        return True
-    except Exception:
-        from flask import current_app
-        current_app.logger.exception('No se pudo enviar el correo de recuperación')
-        return False
+    return _enviar(correo_destino, 'Recuperación de contraseña — Egresados UNDAC', html)
