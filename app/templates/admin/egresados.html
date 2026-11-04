@@ -42,10 +42,22 @@
     </div>
 </div>  
 
+<!-- AVISO DE NAVEGACIÓN DESDE EL TABLERO -->
+{% if etiquetas_tablero %}
+<div class="alert alert-info py-2 small d-flex align-items-center gap-2 mb-3">
+    <i class="bi bi-bar-chart-line"></i>
+    <span>Viene del tablero: {{ etiquetas_tablero|join(' · ') }}</span>
+    <a href="{{ url_for('admin.empleabilidad') }}" class="ms-auto">Volver al tablero</a>
+</div>
+{% endif %}
+
 <!-- FILTROS VISIBLES Y ORDENADOS -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body p-3">
         <form method="GET" action="{{ url_for('admin.egresados') }}">
+            {% for k in ['situacion', 'id_sector', 'empresa', 'actual'] %}
+                {% if filtros.get(k) %}<input type="hidden" name="{{ k }}" value="{{ filtros[k] }}">{% endif %}
+            {% endfor %}
             
             <!-- Barra principal de texto -->
             <div class="row g-2 mb-3">

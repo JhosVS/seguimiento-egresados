@@ -5,14 +5,14 @@ from flask import flash, jsonify, redirect, render_template, request, send_file,
 from flask_login import current_user
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import case, exists, func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.admin import admin
 from app.auth.decorators import requiere_rol
 from app.extensions import db
-from app.models import Curricula, Egresado, FormacionAcademica, ProgramaEstudio, Usuario
-from app.utils.helpers import alcance_personal
+from app.models import Curricula, Egresado, Empleo, FormacionAcademica, ProgramaEstudio, Sector, Usuario
+from app.utils.helpers import alcance_personal, clave_empresa
 from app.utils.historial import registrar
 
 NIVEL_NUM = {'egresado': 0, 'bachiller': 1, 'titulado': 2, 'maestria': 3, 'doctorado': 4}
@@ -80,6 +80,31 @@ def _consulta(personal):
         q = q.filter(NIVEL_SQL == NIVEL_NUM[nivel[5:]])
     elif nivel in NIVEL_NUM:
         q = q.filter(NIVEL_SQL >= NIVEL_NUM[nivel])
+    # Filtros que llegan desde el tablero: situación laboral, sector y empresa
+    def con_empleo(*cond):
+        return exists().where(Empleo.id_egresado == Egresado.id_egresado, *cond)
+
+    situacion = f.get('situacion')
+    if situacion == 'con_empleo':
+        q = q.filter(con_empleo(Empleo.fecha_fin.is_(None)))
+    elif situacion == 'sin_empleo':
+        q = q.filter(~con_empleo(Empleo.fecha_fin.is_(None)))
+
+    id_sector = f.get('id_sector', type=int)
+    empresa = f.get('empresa', '').strip()
+    if id_sector or empresa:
+        cond = []
+        if f.get('actual') == '1':
+            cond.append(Empleo.fecha_fin.is_(None))
+        if id_sector:
+            cond.append(Empleo.id_sector == id_sector)
+        if empresa:
+            # La empresa se compara con la misma clave que usa el ranking del tablero
+            clave = clave_empresa(empresa)
+            filas = db.session.execute(select(Empleo.id_egresado, Empleo.empresa_nombre).where(*cond)).all()
+            q = q.filter(Egresado.id_egresado.in_({i for i, n in filas if clave_empresa(n) == clave}))
+        else:
+            q = q.filter(con_empleo(*cond))
     return q
 
 
@@ -101,7 +126,19 @@ def egresados():
     anios_ing = sorted(r[0] for r in db.session.query(Egresado.anio_ingreso).distinct() if r[0])
     anios_eg = sorted(r[0] for r in db.session.query(Egresado.anio_egreso).distinct() if r[0])
 
-    return render_template('admin/egresados.html',
+    etiquetas = []
+    if filtros.get('situacion') in ('con_empleo', 'sin_empleo'):
+        etiquetas.append('Con empleo actual' if filtros['situacion'] == 'con_empleo' else 'Sin empleo actual')
+    if filtros.get('id_sector', '').isdigit():
+        sector = db.session.get(Sector, int(filtros['id_sector']))
+        if sector:
+            etiquetas.append(f'Sector: {sector.nombre}')
+    if filtros.get('empresa'):
+        etiquetas.append(f'Empresa: {filtros["empresa"]}')
+    if etiquetas and filtros.get('actual') == '1':
+        etiquetas.append('solo empleo actual')
+
+    return render_template('admin/egresados.html', etiquetas_tablero=etiquetas,
         egresados=paginado.items, total=paginado.total, paginacion=paginado,
         hay_filtro=bool(filtros), filtros=filtros,
         curriculas=curriculas, anios_ing=anios_ing, anios_eg=anios_eg)

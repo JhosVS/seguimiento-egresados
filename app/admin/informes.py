@@ -1,235 +1,217 @@
 # app/admin/informes.py
-import io
-from datetime import datetime, timedelta, timezone
-from xml.sax.saxutils import escape
+from datetime import datetime
+from io import BytesIO
+from math import ceil
 
+from reportlab.graphics.charts.barcharts import HorizontalBarChart, VerticalBarChart
+from reportlab.graphics.charts.piecharts import Pie
+from reportlab.graphics.shapes import Drawing
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_RIGHT
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
-from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 AZUL = colors.HexColor('#003876')
-GRIS = colors.HexColor('#f1f5f9')
-MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto',
-         'septiembre', 'octubre', 'noviembre', 'diciembre']
+GRIS = colors.HexColor('#6c757d')
+CLARO = colors.HexColor('#f1f3f5')
+COLORES_NIVEL = ['#6c757d', '#0d6efd', '#198754', '#ffc107', '#dc3545']
 
-# Umbrales de las recomendaciones automáticas (ajústalos a criterio de la Escuela)
-MAX_SIN_EMPLEO = 30        # % máximo tolerable de egresados sin ningún empleo registrado
-MIN_TITULADOS = 50         # % mínimo de titulados
-MIN_PARTICIPACION = 50     # % mínimo que respondió alguna encuesta
-MUESTRA_MINIMA = 30        # con menos egresados, los porcentajes se interpretan con cautela
-
-
-def _estilo(nombre, **kw):
-    base = dict(fontName='Times-Roman', fontSize=12, leading=18)   # Times 12, interlineado 1.5 (12 × 1.5)
-    base.update(kw)
-    return ParagraphStyle(nombre, **base)
+_base = getSampleStyleSheet()
+TITULO = ParagraphStyle('titulo', parent=_base['Title'], fontSize=18, textColor=AZUL, alignment=0, spaceAfter=2)
+SUBTITULO = ParagraphStyle('sub', parent=_base['Normal'], fontSize=9, textColor=GRIS)
+SECCION = ParagraphStyle('seccion', parent=_base['Heading3'], fontSize=11, textColor=AZUL, spaceBefore=12, spaceAfter=4)
+TEXTO = ParagraphStyle('texto', parent=_base['Normal'], fontSize=9, leading=12)
+NOTA = ParagraphStyle('nota', parent=_base['Normal'], fontSize=8, textColor=GRIS, leading=10)
+KPI_VALOR = ParagraphStyle('kv', parent=_base['Normal'], fontSize=20, leading=24, alignment=1, textColor=AZUL)
+KPI_TEXTO = ParagraphStyle('kt', parent=_base['Normal'], fontSize=8, leading=10, alignment=1, textColor=GRIS)
 
 
-E = {
-    'titulo': _estilo('titulo', fontName='Times-Bold', fontSize=16, leading=22, alignment=TA_CENTER,
-                      textColor=AZUL, spaceAfter=2),
-    'sub': _estilo('sub', fontSize=11, leading=15, alignment=TA_CENTER, textColor=colors.grey),
-    'h1': _estilo('h1', fontName='Times-Bold', textColor=AZUL, spaceBefore=12, spaceAfter=4, keepWithNext=1),
-    'texto': _estilo('texto', alignment=TA_JUSTIFY, spaceAfter=6),
-    'vineta': _estilo('vineta', alignment=TA_JUSTIFY, leftIndent=18, bulletIndent=4, spaceAfter=4),
-    'nota': _estilo('nota', fontSize=10, leading=15, alignment=TA_JUSTIFY, textColor=colors.HexColor('#444444')),
-    'celda': _estilo('celda', fontSize=10, leading=13),
-    'celda_d': _estilo('celda_d', fontSize=10, leading=13, alignment=TA_RIGHT),
-    'cab': _estilo('cab', fontName='Times-Bold', fontSize=10, leading=13, textColor=colors.white),
-    'cab_d': _estilo('cab_d', fontName='Times-Bold', fontSize=10, leading=13, textColor=colors.white,
-                     alignment=TA_RIGHT),
-}
-
-
-def _pct(parte, total):
-    return round(parte / total * 100, 1) if total else 0
-
-
-def _egr(n):
-    return f'{n} egresado' if n == 1 else f'{n} egresados'
-
-
-def _p(texto):
-    return Paragraph(texto, E['texto'])
-
-
-def _tabla(cabecera, filas, anchos, derecha=()):
-    datos = [[Paragraph(c, E['cab_d' if i in derecha else 'cab']) for i, c in enumerate(cabecera)]]
-    for fila in filas:
-        datos.append([Paragraph(escape(str(v)), E['celda_d' if i in derecha else 'celda'])
-                      for i, v in enumerate(fila)])
-    t = Table(datos, colWidths=anchos, repeatRows=1)
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), AZUL),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, GRIS]),
-        ('LINEBELOW', (0, 0), (-1, -1), 0.25, colors.lightgrey),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-    ]))
+# ---------------------------------------------------------------- piezas reutilizables
+def _kpis(items):
+    """Fila de indicadores: items = [(valor, etiqueta), ...]."""
+    celdas = [[Paragraph(f'<b>{v}</b>', KPI_VALOR), ] for v, _ in items]
+    fila = [[[Paragraph(f'<b>{v}</b>', KPI_VALOR), Paragraph(e, KPI_TEXTO)] for v, e in items]]
+    t = Table(fila, colWidths=[17 * cm / len(items)] * len(items))
+    t.setStyle(TableStyle([('BOX', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                           ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                           ('BACKGROUND', (0, 0), (-1, -1), CLARO),
+                           ('TOPPADDING', (0, 0), (-1, -1), 8), ('BOTTOMPADDING', (0, 0), (-1, -1), 8)]))
     return t
 
 
-def _pie(canvas, doc):
-    canvas.saveState()
-    canvas.setFont('Times-Roman', 9)
-    canvas.setFillColor(colors.grey)
-    canvas.drawString(2.5 * cm, 1.4 * cm, 'Sistema de Seguimiento de Egresados — UNDAC')
-    canvas.drawRightString(A4[0] - 2.5 * cm, 1.4 * cm, f'Página {doc.page}')
-    canvas.restoreState()
+def _tabla(cabecera, filas, anchos, total=None):
+    """Tabla simple: primera columna a la izquierda, el resto a la derecha."""
+    datos = [cabecera] + [list(map(str, f)) for f in filas]
+    if total:
+        datos.append(list(map(str, total)))
+    t = Table(datos, colWidths=anchos, repeatRows=1)
+    estilo = [('BACKGROUND', (0, 0), (-1, 0), AZUL), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+              ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 9),
+              ('ALIGN', (1, 0), (-1, -1), 'RIGHT'), ('GRID', (0, 0), (-1, -1), 0.25, colors.lightgrey),
+              ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, CLARO]),
+              ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4)]
+    if total:
+        estilo += [('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), CLARO)]
+    t.setStyle(TableStyle(estilo))
+    return t
 
 
-def _recomendaciones(d):
-    total = d['total']
-    sin_registro = d['situacion'][2][1]
-    obs = []
-    if _pct(sin_registro, total) > MAX_SIN_EMPLEO:
-        obs.append(f'El {_pct(sin_registro, total)} % no registra ningún empleo. Se recomienda recordarles '
-                   'completar su perfil laboral, aunque hoy no trabajen, para contar con información más completa.')
-    if d['pct_titulados'] < MIN_TITULADOS:
-        obs.append(f'Solo el {d["pct_titulados"]} % registra título profesional. Conviene verificar si falta '
-                   'registrar el dato o si hay egresados a quienes orientar en el proceso de titulación.')
-    if d['pct_participacion'] < MIN_PARTICIPACION:
-        obs.append(f'El {d["pct_participacion"]} % respondió alguna encuesta. Se sugiere promover la '
-                   'participación, por ejemplo con recordatorios y fechas límite claras.')
-    if not obs:
-        obs.append('Los indicadores principales superan los umbrales definidos; se recomienda mantener '
-                   'las campañas de actualización de datos.')
-    if total < MUESTRA_MINIMA:
-        obs.insert(0, f'La cantidad de egresados considerados ({total}) es reducida: con pocos casos los '
-                      'porcentajes varían mucho, por lo que deben interpretarse con cautela.')
-    return obs
+def _paso(maximo):
+    return max(1, ceil(maximo / 5))
 
 
-def generar_informe_pdf(d, filtros, generado_por):
-    """Informe formal. `d` es el resultado de obtener_tablero(); `filtros`, la lista de criterios aplicados."""
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=2.5 * cm, bottomMargin=2.5 * cm,
-                            leftMargin=2.5 * cm, rightMargin=2.5 * cm,
-                            title='Informe de seguimiento de egresados', author=generado_por)
-    ancho = A4[0] - 5 * cm
-    ahora = datetime.now(timezone(timedelta(hours=-5)))       # hora de Lima, sin depender del servidor
-    fecha = f'{ahora.day} de {MESES[ahora.month - 1]} de {ahora.year}'
-    total = d['total']
-    criterios = '; '.join(filtros) if filtros else 'Todos los egresados registrados'
-
-    # --- Encabezado y ficha ---
-    ficha = Table([[Paragraph('<b>Criterios</b>', E['celda']), Paragraph(escape(criterios), E['celda'])],
-                   [Paragraph('<b>Egresados considerados</b>', E['celda']), Paragraph(str(total), E['celda'])],
-                   [Paragraph('<b>Fecha de emisión</b>', E['celda']), Paragraph(fecha, E['celda'])],
-                   [Paragraph('<b>Elaborado por</b>', E['celda']), Paragraph(escape(generado_por), E['celda'])]],
-                  colWidths=[4.5 * cm, ancho - 4.5 * cm])
-    ficha.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('BOTTOMPADDING', (0, 0), (-1, -1), 2)]))
-    story = [Paragraph('INFORME DE SEGUIMIENTO DE EGRESADOS', E['titulo']),
-             Paragraph('Escuela de Ingeniería de Sistemas y Computación — Universidad Nacional Daniel Alcides Carrión',
-                       E['sub']),
-             Spacer(1, 0.5 * cm), ficha, Spacer(1, 0.3 * cm), HRFlowable(width='100%', thickness=1, color=AZUL)]
-
-    # --- 1. Introducción ---
-    criterio_txt = (f'Para este informe se consideraron los egresados que cumplen con lo siguiente: '
-                    f'{escape(criterios)}.' if filtros else
-                    'Para este informe se consideraron todos los egresados registrados en el sistema, sin aplicar filtros.')
-    story += [Paragraph('1. Introducción', E['h1']),
-              _p('El presente informe resume la situación de los egresados de la Escuela de Ingeniería de '
-                 'Sistemas y Computación de la Universidad Nacional Daniel Alcides Carrión (UNDAC), a partir de '
-                 'la información que ellos mismos registran en el Sistema de Seguimiento de Egresados. Su '
-                 'finalidad es ofrecer a la Escuela una visión de la empleabilidad, la formación posterior y la '
-                 'participación de sus egresados, como apoyo para la toma de decisiones.'),
-              _p(criterio_txt)]
-
-    if total == 0:
-        story += [_p('No hay egresados que cumplan con los criterios indicados, por lo que no es posible '
-                     'presentar resultados. Se sugiere modificar los filtros e intentarlo nuevamente.')]
-        doc.build(story, onFirstPage=_pie, onLaterPages=_pie)
-        buf.seek(0)
-        return buf
-
-    # --- 2. Perfil ---
-    v, m, sg = d['varones'], d['mujeres'], d['sin_genero']
-    story += [Paragraph('2. Perfil de los egresados', E['h1']),
-              _p(f'Cumplen con los criterios indicados <b>{_egr(total)}</b>. De ellos, {v} ({_pct(v, total)} %) '
-                 f'son varones y {m} ({_pct(m, total)} %) son mujeres'
-                 + (f'; de {sg} no se cuenta con el dato.' if sg else '.')),
-              _tabla(['Género', 'Egresados', '% del total'],
-                     [['Varones', v, f'{_pct(v, total)} %'], ['Mujeres', m, f'{_pct(m, total)} %']]
-                     + ([['Sin dato', sg, f'{_pct(sg, total)} %']] if sg else []),
-                     [ancho - 7 * cm, 3.5 * cm, 3.5 * cm], derecha=(1, 2))]
-
-    # --- 3. Situación laboral ---
-    actual, anteriores, sin_registro = (n for _, n in d['situacion'])
-    story += [Paragraph('3. Situación laboral', E['h1']),
-              _p(f'El {d["pct_empleo"]} % de los egresados ({_egr(actual)}) registra un empleo actual. '
-                 f'Otros {anteriores} ({_pct(anteriores, total)} %) solo registran empleos anteriores y '
-                 f'{sin_registro} ({_pct(sin_registro, total)} %) no ha registrado ninguno; esto último no '
-                 'implica que estén desempleados, sino que no han completado esa parte de su perfil.'),
-              _tabla(['Situación', 'Egresados', '% del total'],
-                     [[nombre, n, f'{_pct(n, total)} %'] for nombre, n in d['situacion']],
-                     [ancho - 7 * cm, 3.5 * cm, 3.5 * cm], derecha=(1, 2)),
-              Spacer(1, 0.3 * cm)]
-
-    sectores = d['sectores']
-    if sectores:
-        total_sec = sum(n for _, n in sectores)
-        texto = (f'Entre los empleos actuales registrados, el sector con mayor presencia es '
-                 f'«{escape(sectores[0][0])}», con {sectores[0][1]} ({_pct(sectores[0][1], total_sec)} %)')
-        if len(sectores) > 1:
-            texto += (f', seguido de «{escape(sectores[1][0])}», con {sectores[1][1]} '
-                      f'({_pct(sectores[1][1], total_sec)} %)')
-        story += [_p(texto + '.'),
-                  _tabla(['Sector económico', 'Empleos actuales', '% de los empleos'],
-                         [[s, n, f'{_pct(n, total_sec)} %'] for s, n in sectores],
-                         [ancho - 7 * cm, 3.5 * cm, 3.5 * cm], derecha=(1, 2)),
-                  Spacer(1, 0.3 * cm)]
+def _barras(etiquetas, valores, colores=None, horizontal=False, alto=190):
+    """Gráfico de barras con el valor sobre cada barra."""
+    d = Drawing(17 * cm, alto)
+    g = HorizontalBarChart() if horizontal else VerticalBarChart()
+    if horizontal:   # en horizontales la primera categoría queda abajo; se invierte para que el mayor quede arriba
+        etiquetas, valores = etiquetas[::-1], valores[::-1]
+        colores = colores[::-1] if colores else None
+        g.x, g.width = 190, 250
     else:
-        story.append(_p('Aún no hay empleos actuales registrados, por lo que no se puede mostrar la '
-                        'distribución por sector económico.'))
+        g.x, g.width = 40, 420
+    g.y, g.height = 20, alto - 40
+    g.data = [valores]
+    g.categoryAxis.categoryNames = [e if len(e) <= 32 else e[:30] + '…' for e in etiquetas]
+    g.categoryAxis.labels.fontSize = 8
+    g.valueAxis.valueMin = 0
+    g.valueAxis.valueMax = max(valores + [1]) * 1.15
+    g.valueAxis.valueStep = _paso(max(valores + [1]))
+    g.valueAxis.labels.fontSize = 8
+    g.valueAxis.labelTextFormat = '%d'
+    g.barLabelFormat = '%d'
+    g.barLabels.fontSize = 8
+    g.barLabels.nudge = 9 if horizontal else 7
+    g.bars[0].fillColor = colors.HexColor('#0d6efd')
+    for i, c in enumerate(colores or []):
+        g.bars[(0, i)].fillColor = colors.HexColor(c)
+    d.add(g)
+    return d
 
-    empresas = d['empresas']
-    if empresas:
-        story += [_p(f'La siguiente tabla presenta las '
-                     f'{len(empresas)} instituciones principales, contando todos los empleos que los egresados registraron.'),
-                  _tabla(['Empresa o institución', 'Egresados', '% del total'],
-                         [[e, n, f'{_pct(n, total)} %'] for e, n in empresas],
-                         [ancho - 7 * cm, 3.5 * cm, 3.5 * cm], derecha=(1, 2))]
+
+def _pastel(valores, etiquetas):
+    d = Drawing(17 * cm, 150)
+    p = Pie()
+    p.x, p.y, p.width, p.height = 200, 10, 130, 130
+    p.data = valores
+    p.labels = [f'{e}: {v}' for e, v in zip(etiquetas, valores)]
+    p.slices.fontSize = 8
+    for i, c in enumerate(['#198754', '#adb5bd']):
+        p.slices[i].fillColor = colors.HexColor(c)
+    d.add(p)
+    return d
+
+
+def _pie_de_pagina(c, doc):
+    c.saveState()
+    c.setFont('Helvetica', 8)
+    c.setFillColor(GRIS)
+    c.drawString(2 * cm, 1.2 * cm, 'Sistema de Seguimiento de Egresados')
+    c.drawRightString(A4[0] - 2 * cm, 1.2 * cm, f'Página {doc.page}')
+    c.restoreState()
+
+
+def _encabezado(titulo, filtros, autor):
+    return [Paragraph(titulo, TITULO),
+            Paragraph(f'Generado el {datetime.now():%d/%m/%Y %H:%M} por {autor}', SUBTITULO),
+            Spacer(1, 6),
+            Paragraph('Filtros aplicados', SECCION),
+            Paragraph(' · '.join(filtros) if filtros else 'Ninguno: se incluye a todos los egresados.', TEXTO)]
+
+
+def _sin_datos():
+    return [Spacer(1, 20), Paragraph('No hay egresados con estos filtros.', TEXTO)]
+
+
+# ---------------------------------------------------------------- un informe por pestaña
+def _informe_nivel(d):
+    if d['total'] == 0:
+        return _sin_datos()
+    filas = [[n, c, f'{p}%'] for n, c, p in zip(d['labels'], d['datos'], d['pct'])]
+    sin_genero = f' · Sin género registrado: {d["sin_genero"]}' if d['sin_genero'] else ''
+    return [
+        Spacer(1, 10),
+        _kpis([(d['total'], 'Total de egresados'),
+               (f'{d["varones"]} ({d["pct_varones"]}%)', 'Masculino'),
+               (f'{d["mujeres"]} ({d["pct_mujeres"]}%)', 'Femenino')]),
+        Paragraph('Egresados por nivel profesional', SECCION),
+        _barras(d['labels'], d['datos'], COLORES_NIVEL),
+        _tabla(['Nivel máximo alcanzado', 'Egresados', '% del total'], filas, [9 * cm, 4 * cm, 4 * cm],
+               total=['Total', d['total'], '100%']),
+        Spacer(1, 6),
+        Paragraph('Cada persona se cuenta una sola vez, según su nivel máximo. '
+                  '"Solo egresado" indica que no tiene grado ni título registrado.' + sin_genero, NOTA)]
+
+
+def _informe_participacion(d):
+    if not d['encuesta']:
+        return [Spacer(1, 20), Paragraph('No hay encuestas publicadas todavía.', TEXTO)]
+    if d['total'] == 0:
+        return _sin_datos()
+    filas = [[n, r, t, fa] for n, r, t, fa in d['filas']]
+    return [
+        Paragraph(f'Encuesta: {d["encuesta"].nombre} ({d["encuesta"].anio})', SECCION),
+        _kpis([(f'{d["pct"]}%', 'Participación'),
+               (d['respondieron'], 'Respondieron'),
+               (d['faltan'], 'Pendientes')]),
+        Spacer(1, 6),
+        _pastel([d['respondieron'], d['faltan']], ['Respondieron', 'Pendientes']),
+        Paragraph('Participación según nivel máximo', SECCION),
+        _tabla(['Nivel', 'Respondieron', 'Total', 'Faltan'], filas, [7 * cm, 3.5 * cm, 3.5 * cm, 3 * cm],
+               total=['Total', d['respondieron'], d['total'], d['faltan']])]
+
+
+def _informe_empleabilidad(d, actual):
+    if d['total'] == 0:
+        return _sin_datos()
+    cont = []
+    cont += [Spacer(1, 10),
+             _kpis([(d['total'], 'Egresados'),
+                    (f'{d["con_empleo"]} ({d["pct_con"]}%)', 'Con empleo actual'),
+                    (f'{d["sin_empleo"]} ({d["pct_sin"]}%)', 'Sin empleo actual')])]
+
+    cont.append(Paragraph('Egresados por sector (empleo actual)' if actual else 'Egresados por sector (historial)', SECCION))
+    if d['sectores']:
+        cont.append(_tabla(['Sector', 'Egresados'], [[s, n] for _, s, n in d['sectores']], [13 * cm, 4 * cm]))
     else:
-        story.append(_p('Aún no hay empleos registrados, por lo que no se puede identificar en qué empresas '
-                        'trabajan los egresados.'))
+        cont.append(Paragraph('Sin empleos registrados con estos filtros.', TEXTO))
 
-    # --- 4. Formación académica ---
-    t = d['titulacion']
-    bach, tit, mae, doct = t['datos']
-    story += [Paragraph('4. Formación académica', E['h1']),
-              _p(f'El {t["pct"][0]} % de los egresados tienen el grado de bachiller registrado y el '
-                 f'{t["pct"][1]} % cuentan con título profesional. En estudios de posgrado '
-                 f'{t["pct"][2]} % registran una maestría y {t["pct"][3]} % un doctorado. Un '
-                 'mismo egresado puede figurar en más de una categoría.'),
-              _tabla(['Grado o título', 'Egresados', '% del total'],
-                     [[nombre, n, f'{p} %'] for nombre, n, p in zip(t['labels'], t['datos'], t['pct'])],
-                     [ancho - 7 * cm, 3.5 * cm, 3.5 * cm], derecha=(1, 2))]
+    cont.append(Paragraph('Top 10 empresas donde trabajan actualmente' if actual
+                          else 'Top 10 empresas donde han trabajado', SECCION))
+    if d['empresas']:
+        nombres, valores = [e[0] for e in d['empresas']], [e[1] for e in d['empresas']]
+        cont.append(_barras(nombres, valores, horizontal=True, alto=max(120, len(nombres) * 22 + 40)))
+    else:
+        cont.append(Paragraph('Sin datos con estos filtros.', TEXTO))
 
-    # --- 5. Participación en encuestas ---
-    story += [Paragraph('5. Participación en encuestas', E['h1']),
-              _p(f'{_egr(d["participaron"])} ({d["pct_participacion"]} %) han respondido al menos una '
-                 'encuesta del sistema.')]
+    cont += [Spacer(1, 6),
+             Paragraph('"Sin empleo actual" no significa necesariamente desempleo: solo indica que no hay un empleo '
+                       'actual registrado. ' +
+                       ('Sector y empresas cuentan solo empleos actuales.' if actual else
+                        'Sector y empresas cuentan todo el historial de empleos; un egresado puede figurar en '
+                        'varios sectores o empresas.'), NOTA)]
+    return cont
 
-    # --- 6. Detalle por currícula ---
-    story += [Paragraph('6. Detalle por currícula', E['h1']),
-              _p('La siguiente tabla desagrega los resultados según el plan de estudios (currícula) de cada egresado.'),
-              _tabla(['Currícula', 'Con empleo', 'Egresados', 'Bachilleres', 'Titulados', 'Postgrados'],
-                     [list(fila) for fila in d['curriculas']],
-                     [ancho - 12.5 * cm] + [2.5 * cm] * 5, derecha=(1, 2, 3, 4, 5))]
 
-    # --- 7. Conclusiones y recomendaciones ---
-    story += [Paragraph('7. Conclusiones y recomendaciones', E['h1']),
-              _p(f'En conjunto, de los {_egr(total)} considerados, el {d["pct_empleo"]} % registra un empleo '
-                 f'actual, el {d["pct_titulados"]} % cuenta con título profesional y el '
-                 f'{d["pct_participacion"]} % participó en alguna encuesta. Con base en estos resultados se plantea '
-                 'lo siguiente:')]
-    story += [Paragraph(o, E['vineta'], bulletText='•') for o in _recomendaciones(d)]
+TITULOS = {'nivel': 'Informe de nivel profesional',
+           'participacion': 'Informe de participación en encuestas',
+           'empleabilidad': 'Informe de empleabilidad'}
 
-    doc.build(story, onFirstPage=_pie, onLaterPages=_pie)
+
+def generar_informe(vista, datos, f, filtros, autor):
+    """Devuelve el PDF (BytesIO) del informe de la pestaña indicada."""
+    if vista == 'nivel':
+        cuerpo = _informe_nivel(datos)
+    elif vista == 'participacion':
+        cuerpo = _informe_participacion(datos)
+    else:
+        cuerpo = _informe_empleabilidad(datos, f['actual'])
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=2 * cm, rightMargin=2 * cm,
+                            topMargin=1.8 * cm, bottomMargin=2 * cm, title=TITULOS[vista])
+    doc.build(_encabezado(TITULOS[vista], filtros, autor) + cuerpo,
+              onFirstPage=_pie_de_pagina, onLaterPages=_pie_de_pagina)
     buf.seek(0)
     return buf

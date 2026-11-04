@@ -2,63 +2,89 @@
 {% block titulo %}Tablero de control{% endblock %}
 
 {% block contenido %}
+<div class="mb-4">
+    <h4 class="fw-bold mb-1">Tablero de control</h4>
+    <span class="text-muted">Hola, {{ current_user.personal.nombres }}. Elige un tema y filtra para ver el
+        detalle.</span>
+</div>
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
     <div>
         <h4 class="fw-bold mb-1">Tablero de control</h4>
-        <span class="text-muted">Hola, {{ current_user.personal.nombres }}. Este es el estado del seguimiento de egresados.</span>
+        <span class="text-muted">Hola, {{ current_user.personal.nombres }}. Elige un tema y filtra para ver el
+            detalle.</span>
     </div>
-    <a class="btn btn-outline-secondary" href="{{ url_for('admin.informe_pdf') }}"
-       onclick="this.href = '{{ url_for('admin.informe_pdf') }}?' + new URLSearchParams(new FormData(document.getElementById('filtros')))">
+    <a class="btn btn-outline-secondary" href="{{ url_for('admin.informe', vista=vista) }}"
+        onclick="this.href = '{{ url_for('admin.informe', vista=vista) }}?' + new URLSearchParams(new FormData(document.getElementById('filtros')))">
         <i class="bi bi-file-pdf me-1"></i>Exportar informe
     </a>
 </div>
 
-<!-- Filtros: al cambiar uno, todo el tablero se recalcula sin recargar la página -->
-<form id="filtros" class="card border shadow-sm rounded-4 mb-4"
-      hx-get="{{ url_for('admin.dashboard') }}" hx-trigger="change"
-      hx-target="#tablero" hx-swap="innerHTML" hx-push-url="true">
+<!-- Pestañas por tema -->
+<ul class="nav nav-pills mb-4">
+    {% for clave, etiqueta, endpoint in [('nivel', 'Nivel profesional', 'admin.dashboard'),
+    ('participacion', 'Participación en encuestas', 'admin.participacion'),
+    ('empleabilidad', 'Empleabilidad', 'admin.empleabilidad')] %}
+    <li class="nav-item">
+        <a class="nav-link {{ 'active' if vista == clave }}" href="{{ url_for(endpoint) }}">{{ etiqueta }}</a>
+    </li>
+    {% endfor %}
+</ul>
+
+<!-- Filtros del tema actual: al cambiar uno, se recalculan los resultados sin recargar -->
+<form id="filtros" class="card border shadow-sm rounded-4 mb-4" hx-get="{{ request.path }}" hx-trigger="change"
+    hx-target="#tablero" hx-swap="innerHTML" hx-push-url="true">
     <div class="card-body p-3 row g-3 align-items-end">
+
+        {% if vista == 'participacion' %}
+        <div class="col-md-3">
+            <label class="form-label mb-1">Encuesta</label>
+            <select name="id_encuesta" class="form-select">
+                {% for e in encuestas %}
+                <option value="{{ e.id_encuesta }}" {{ 'selected' if f.id_encuesta==e.id_encuesta }}>{{ e.nombre }} ({{
+                    e.anio }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
         <div class="col-md-2">
             <label class="form-label mb-1">Año de egreso</label>
             <select name="anio_egreso" class="form-select">
                 <option value="">Todos</option>
-                {% for a in anios_egreso %}<option value="{{ a }}" {{ 'selected' if f.anio_egreso == a }}>{{ a }}</option>{% endfor %}
+                {% for a in anios_egreso %}<option value="{{ a }}" {{ 'selected' if f.anio_egreso==a }}>{{ a }}</option>
+                {% endfor %}
             </select>
         </div>
-        <div class="col-md-2">
-            <label class="form-label mb-1">Situación laboral</label>
-            <select name="situacion" class="form-select">
-                <option value="">Todos</option>
-                <option value="con_empleo" {{ 'selected' if f.situacion == 'con_empleo' }}>Con empleo actual</option>
-                <option value="sin_empleo" {{ 'selected' if f.situacion == 'sin_empleo' }}>Sin empleo actual</option>
-            </select>
-        </div>
-        <div class="col-md-2">
+
+        <div class="col-md-3">
             <label class="form-label mb-1">Currícula</label>
             <select name="curricula" class="form-select">
                 <option value="">Todas</option>
-                {% for c in curriculas %}<option value="{{ c }}" {{ 'selected' if f.curricula == c }}>{{ c }}</option>{% endfor %}
+                {% for c in curriculas %}<option value="{{ c.nombre }}" {{ 'selected' if f.curricula==c.nombre }}>{{
+                    c.nombre }}</option>{% endfor %}
+            </select>
+        </div>
+
+        {% if vista == 'empleabilidad' %}
+        <div class="col-md-3">
+            <label class="form-label mb-1">Sector (empresas)</label>
+            <select name="id_sector" class="form-select">
+                <option value="">Todos</option>
+                {% for s in sectores %}<option value="{{ s.id_sector }}" {{ 'selected' if f.id_sector==s.id_sector }}>{{
+                    s.nombre }}</option>{% endfor %}
             </select>
         </div>
         <div class="col-md-2">
-            <label class="form-label mb-1">Sector económico</label>
-            <div class="dropdown">
-                <button class="form-select text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                    <span id="etiqueta-sectores">{{ f.sectores|length ~ ' seleccionados' if f.sectores else 'Todos' }}</span>
-                </button>
-                <div class="dropdown-menu p-2" style="max-height: 320px; overflow-y: auto; min-width: 280px;">
-                    {% for s in sectores %}
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="sector" value="{{ s.id_sector }}"
-                               id="sec-{{ s.id_sector }}" {{ 'checked' if s.id_sector in f.sectores }}>
-                        <label class="form-check-label small" for="sec-{{ s.id_sector }}">{{ s.nombre }}</label>
-                    </div>
-                    {% endfor %}
-                </div>
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" role="switch" name="actual" value="1" id="chk-actual"
+                    {{ 'checked' if f.actual }}>
+                <label class="form-check-label" for="chk-actual">Solo empleo actual</label>
             </div>
         </div>
+        {% endif %}
+
         <div class="col-md-2">
-            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary w-100">
+            <a href="{{ request.path }}" class="btn btn-outline-secondary w-100">
                 <i class="bi bi-x-circle me-1"></i>Limpiar
             </a>
         </div>
@@ -68,70 +94,86 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
 <div id="tablero">
-    {% include 'admin/_tablero.html' %}
+    {% include 'admin/_tablero_' ~ vista ~ '.html' %}
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-Chart.defaults.animation = false;            // sin animaciones: aparecen completos al instante
-Chart.defaults.responsive = true;
-Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.animation = false;
+    Chart.defaults.responsive = true;
+    Chart.defaults.maintainAspectRatio = false;
 
-const COLORES_SECTOR = ['#0d6efd', '#198754', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14', '#dc3545'];
+    function pintar(id, config) {
+        const canvas = document.getElementById(id);
+        if (canvas) new Chart(canvas, config);
+    }
 
-function pintar(id, config) {
-    const canvas = document.getElementById(id);
-    if (canvas) new Chart(canvas, config);
-}
+    function dibujarGraficos() {
+        const fuente = document.getElementById('datos-graficos');
+        if (!fuente) return;
+        const g = JSON.parse(fuente.textContent);
 
-function dibujarGraficos() {
-    const fuente = document.getElementById('datos-graficos');
-    if (!fuente) return;                     // sin egresados: no hay gráficos que dibujar
-    const g = JSON.parse(fuente.textContent);
-
-    const t = g.titulacion;
-    pintar('chartTitulacion', {
-        type: 'bar',
-        data: {
-            labels: t.labels.map((nombre, i) => [nombre, t.datos[i] + ' (' + t.pct[i] + '%)']),
-            datasets: [{ data: t.datos, backgroundColor: t.colores, borderRadius: 6 }]
-        },
-        options: {
-            plugins: { legend: { display: false } },
-            scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } }
+        if (g.nivel) {
+            pintar('chartNivel', {
+                type: 'bar',
+                data: {
+                    labels: g.nivel.labels.map((n, i) => [n, g.nivel.datos[i] + ' (' + g.nivel.pct[i] + '%)']),
+                    datasets: [{
+                        data: g.nivel.datos, borderRadius: 6,
+                        backgroundColor: ['#6c757d', '#0d6efd', '#198754', '#ffc107', '#dc3545']
+                    }]
+                },
+                options: {
+                    plugins: { legend: { display: false } },
+                    scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
         }
+
+        if (g.participacion) {
+            pintar('chartParticipacion', {
+                type: 'doughnut',
+                data: {
+                    labels: ['Respondieron', 'Pendientes'],
+                    datasets: [{ data: g.participacion, backgroundColor: ['#198754', '#dee2e6'] }]
+                },
+                options: { plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+
+        if (g.empresas) {
+            pintar('chartEmpresas', {
+                type: 'bar',
+                data: {
+                    labels: g.empresas.map(e => e[0] + ' (' + e[1] + ')'),
+                    datasets: [{ data: g.empresas.map(e => e[1]), backgroundColor: '#0d6efd', borderRadius: 6 }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } },
+                    // Clic en una barra: lista de egresados que trabajaron en esa empresa
+                    onClick: (e, els) => {
+                        if (!els.length) return;
+                        const sep = g.url_empresa.includes('?') ? '&' : '?';
+                        location.href = g.url_empresa + sep + 'empresa=' + encodeURIComponent(g.empresas[els[0].index][0]);
+                    },
+                    onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; }
+                }
+            });
+        }
+    }
+
+    // Se sueltan los gráficos viejos antes de reemplazar el contenido
+    document.body.addEventListener('htmx:beforeSwap', e => {
+        if (e.detail.target.id === 'tablero')
+            document.querySelectorAll('#tablero canvas').forEach(c => Chart.getChart(c)?.destroy());
+    });
+    document.body.addEventListener('htmx:afterSettle', e => {
+        if (e.target.id === 'tablero') requestAnimationFrame(dibujarGraficos);
     });
 
-    pintar('chartSectores', {
-        type: 'bar',
-        data: {
-            labels: g.sectores.map(s => s[0]),
-            datasets: [{ data: g.sectores.map(s => s[1]), backgroundColor: COLORES_SECTOR, borderRadius: 6 }]
-        },
-        options: {
-            indexAxis: 'y',
-            plugins: { legend: { display: false } },
-            scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } }
-        }
-    });
-}
-
-// Antes de reemplazar el contenido se sueltan los gráficos viejos; si no, se acumulan y todo se vuelve lento
-document.body.addEventListener('htmx:beforeSwap', e => {
-    if (e.detail.target.id === 'tablero')
-        document.querySelectorAll('#tablero canvas').forEach(c => Chart.getChart(c)?.destroy());
-});
-document.body.addEventListener('htmx:afterSettle', e => {
-    if (e.target.id === 'tablero') requestAnimationFrame(dibujarGraficos);
-});
-
-dibujarGraficos();
-
-// Texto del botón de sectores: "Todos" o "N seleccionados"
-document.querySelectorAll('input[name="sector"]').forEach(c => c.addEventListener('change', () => {
-    const n = document.querySelectorAll('input[name="sector"]:checked').length;
-    document.getElementById('etiqueta-sectores').textContent = n ? n + ' seleccionados' : 'Todos';
-}));
+    dibujarGraficos();
 </script>
 {% endblock %}

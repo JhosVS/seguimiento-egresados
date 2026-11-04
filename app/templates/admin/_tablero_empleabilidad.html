@@ -1,0 +1,96 @@
+{% if datos.total == 0 %}
+<div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body text-center text-muted py-5">
+        <i class="bi bi-funnel fs-1 d-block mb-2"></i>
+        <p class="mb-0">No hay egresados con estos filtros.</p>
+    </div>
+</div>
+{% else %}
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="d-block text-muted text-uppercase fw-semibold small mb-1">Con empleo actual</span>
+                    <h2 class="fs-1 fw-bold text-success mb-0">{{ datos.con_empleo }}</h2>
+                    <span class="text-secondary small">{{ datos.pct_con }}% de {{ datos.total }} egresados</span>
+                </div>
+                <a class="btn btn-outline-success btn-sm"
+                   href="{{ url_for('admin.egresados', situacion='con_empleo', anio_egreso=f.anio_egreso, curricula=f.curricula or None) }}">
+                    Ver egresados
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="d-block text-muted text-uppercase fw-semibold small mb-1">Sin empleo actual</span>
+                    <h2 class="fs-1 fw-bold text-warning mb-0">{{ datos.sin_empleo }}</h2>
+                    <span class="text-secondary small">{{ datos.pct_sin }}% de {{ datos.total }} egresados</span>
+                </div>
+                <a class="btn btn-outline-warning btn-sm"
+                   href="{{ url_for('admin.egresados', situacion='sin_empleo', anio_egreso=f.anio_egreso, curricula=f.curricula or None) }}">
+                    Ver egresados
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-1">{{ 'Egresados por sector (empleo actual)' if f.actual else 'Egresados por sector (historial)' }}</h6>
+                <p class="text-muted small mb-3">
+                    {{ 'Egresados con empleo actual en cada sector.' if f.actual else 'Egresados que alguna vez trabajaron en cada sector.' }}
+                    Usa "Ver" para listarlos.
+                </p>
+                <div class="table-responsive" style="max-height: 360px; overflow-y: auto;">
+                    <table class="table table-sm align-middle mb-0">
+                        <tbody>
+                            {% for id_sector, nombre, n in datos.sectores %}
+                            <tr>
+                                <td>{{ nombre }}</td>
+                                <td class="text-end fw-semibold">{{ n }}</td>
+                                <td class="text-end">
+                                    {% if id_sector %}
+                                    <a class="small" href="{{ url_for('admin.egresados', id_sector=id_sector, actual=1 if f.actual else None, anio_egreso=f.anio_egreso, curricula=f.curricula or None) }}">Ver</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td class="text-muted small">Sin empleos registrados con estos filtros.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-1">{{ 'Top 10 empresas donde trabajan actualmente' if f.actual else 'Top 10 empresas donde han trabajado' }}</h6>
+                <p class="text-muted small mb-3">
+                    {{ 'Solo empleos actuales.' if f.actual else 'Histórico: todos los empleos registrados, actuales o no.' }}
+                    Haz clic en una barra para ver quiénes son.
+                </p>
+                {% if datos.empresas %}
+                <div style="height: 340px;"><canvas id="chartEmpresas"></canvas></div>
+                {% else %}
+                <p class="text-muted small mb-0">Sin datos con estos filtros.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+<script type="application/json" id="datos-graficos">{{ {
+    'empresas': datos.empresas,
+    'url_empresa': url_for('admin.egresados', id_sector=f.id_sector, actual=1 if f.actual else None,
+                           anio_egreso=f.anio_egreso, curricula=f.curricula or None)
+}|tojson }}</script>
+{% endif %}
