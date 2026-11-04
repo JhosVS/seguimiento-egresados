@@ -3,7 +3,7 @@
 import os
 from flask import Flask, render_template, request, make_response, redirect, url_for, flash, session, send_from_directory
 from config import Config
-from app.extensions import db, login_manager, bcrypt, mail, scheduler
+from app.extensions import db, login_manager, bcrypt, scheduler
 from app.utils.historial import depurar_historial
 from flask_login import current_user
 from datetime import date
@@ -30,7 +30,6 @@ def create_app(config_class=Config):
     db.init_app(app)
     login_manager.init_app(app)
     bcrypt.init_app(app)
-    mail.init_app(app)
     scheduler.init_app(app)
 
     @login_manager.user_loader

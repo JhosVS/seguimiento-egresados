@@ -34,14 +34,6 @@ class Config:
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'instance', 'uploads')
 
-    # Configuración de correo
-    MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
-    MAIL_PORT = int(os.getenv('MAIL_PORT', 587))
-    MAIL_USE_TLS = os.getenv('MAIL_USE_TLS', 'True').lower() in ['true', 'on', '1']
-    MAIL_USERNAME = os.getenv('MAIL_USERNAME')
-    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
-    MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER')
-
     # Sesiones: se cierran tras N minutos SIN actividad (cada clic la renueva)
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=int(os.getenv('SESION_MINUTOS')))
     SESSION_COOKIE_HTTPONLY = True        # el JavaScript de la página no puede leer la cookie
