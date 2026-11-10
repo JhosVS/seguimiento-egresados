@@ -227,5 +227,4 @@ def informe(vista):
     pdf = generar_informe(vista, CALCULOS[vista](f), f, filtros, current_user.personal.nombre_completo)
     registrar('consulta', 'informes',
               f'Generó el informe de {vista}' + (f' ({"; ".join(filtros)})' if filtros else ''), guardar=True)
-    return send_file(pdf, mimetype='application/pdf', as_attachment=True,
-                     download_name=f'informe_{vista}.pdf')
+    return send_file(pdf, as_attachment=True, download_name=f'informe_{vista}.docx', mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
